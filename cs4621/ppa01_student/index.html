@@ -155,13 +155,8 @@
 
 <script id="vertexShader" type="x-shader/x-vertex">
     attribute vec3 vert_position;
-    attribute vec2 vert_texCoord;
-
-    varying vec2 geom_texCoord;
-
     void main() {
         gl_Position = vec4(vert_position, 1.0);
-        geom_texCoord = vert_texCoord;
     }
 </script>
 
@@ -378,13 +373,16 @@
         var gl = initializeWebGL(canvasName);
         var program = createGlslProgram(gl, vertexShaderName, fragmentShaderName);
 
-        var min = -1.0;
-        var max = 1.0;
-        var count = 512;
-        var vertexData = [];
-        for (var i = 0; i < count; i++) {
-            vertexData.push(min + (max - min) * i / (count - 1));
-        }
+        var vertexData = [
+            -1.0, -1.0, 0.0,  // Lower left
+            0.0,  0.0,
+            1.0, -1.0, 0.0,  // Lower right
+            1.0,  0.0,
+            1.0,  1.0, 0.0,  // Top right
+            1.0,  1.0,
+            -1.0,  1.0, 0.0,  // Top left
+            0.0,  1.0
+        ];
         var vertexArray = new Float32Array(vertexData);
         var vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -406,13 +404,15 @@
 
             prepareProgram(gl, program);
 
+            var rgb = getBackgroundColor();
+            var colorLocation = gl.getUniformLocation(program, "color");
+            // Step 2: Set its value using the right function.
+            gl.uniform3f(colorLocation, rgb[0], rgb[1], rgb[2]);
+
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
             var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
             gl.enableVertexAttribArray(vertPositionLocation);
             gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 4*5, 0);
-            var vertTextureLocation = gl.getAttribLocation(program, "vert_texCoord");
-            gl.enableVertexAttribArray(vertTextureLocation);
-            gl.vertexAttribPointer(vertTextureLocation, 2, gl.FLOAT, false, 4*5, 4*3);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -428,9 +428,7 @@
     }
 
     runCanvas("webglCanvas", "vertexShader", "fragmentShader", function(gl, program) {
-        var rgb = getBackgroundColor();
-        var colorLocation = gl.getUniformLocation(program, "color");
-        gl.uniform3f(colorLocation, rgb[0], rgb[1], rgb[2]);
+        // NO-OP
     });
 </script>
 
