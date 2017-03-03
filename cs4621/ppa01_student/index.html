@@ -155,20 +155,87 @@
 
 <script id="vertexShader" type="x-shader/x-vertex">
     attribute vec3 vert_position;
+    varying vec3 geom_coord;
+
     void main() {
         gl_Position = vec4(vert_position, 1.0);
+        geom_coord = vert_position;
     }
 </script>
 
 <script id="fragmentShader" type="x-shader/x-fragment">
+    #define MAX_TRIANGLES 132
     precision highp float;
 
+    uniform vec3 vertexPositions[MAX_TRIANGLES*3];
+    uniform vec3 triangleColors[MAX_TRIANGLES];
+    uniform int numOfTriangles;
+
+    uniform vec3 cameraEye;
+    uniform vec3 cameraTarget;
+    uniform vec3 cameraUp;
+    uniform float cameraFov;
     uniform vec3 color;
+
+    varying vec3 geom_coord;
 
     void main() {
         gl_FragColor = vec4(color, 1.0);
+        vec3 basis_z = normalize(cameraEye - cameraTarget);
+        vec3 basis_x = normalize(cross(cameraUp, basis_z));
+        vec3 basis_y = normalize(cross(basis_z,basis_x));
+        float s = tan(radians(cameraFov/2.0));
+        vec3 rayDir = normalize(basis_z*(-1.0) + basis_x*(s*geom_coord.x) + basis_y*(s*geom_coord.y));
+        float rayEnd = 1.0/0.0;
+
+        for(int index=0; index<MAX_TRIANGLES; index++) {
+            if (index >= numOfTriangles)
+                break;
+
+            vec3 v0 = vertexPositions[3*index];
+            vec3 v1 = vertexPositions[3*index+1];
+            vec3 v2 = vertexPositions[3*index+2];
+
+            float a = v0.x-v1.x;
+            float b = v0.y-v1.y;
+            float c = v0.z-v1.z;
+
+            float d = v0.x-v2.x;
+            float e = v0.y-v2.y;
+            float f = v0.z-v2.z;
+
+            vec3 p = cameraEye;
+            vec3 q = rayDir;
+
+            float g = q.x;
+            float h = q.y;
+            float i = q.z;
+            float j = v0.x - p.x;
+            float k = v0.y - p.y;
+            float l = v0.z - p.z;
+            float M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h-e*g);
+            float t = -(f*(a*k-j*b)+e*(j*c-a*l)+d*(b*l-k*c))/M;
+            if (t <= 0.0 || t > rayEnd) {
+                continue;
+            }
+            float gamma = (i*(a*k-j*b)+h*(j*c-a*l)+g*(b*l-k*c))/M;
+            if (gamma <= 0.0 || gamma >= 1.0) {
+                continue;
+            }
+
+            float beta = (j*(e*i-h*f)+k*(g*f-d*i)+l*(d*h-e*g))/M;
+            if (beta <= 0.0 || beta >= (1.0 - gamma)) {
+                continue;
+            }
+            rayEnd = t;
+            gl_FragColor = vec4(triangleColors[3*index], 1.0);
+        }
     }
 </script>
+
+
+
+
 
 <script>
     function initGui() {
@@ -309,6 +376,54 @@
         ];
     }
 
+//    function add(v1, v2) {
+//        if (v1.length !== v2.length) {
+//            throw new Error("Cannot subtract two vectors of different lengths");
+//        }
+//        var v = JSON.parse(JSON.stringify(v1)); //deep copy of v1
+//        for (var i = 0; i < v.length; i++) {
+//            v[i] += v2[i];
+//        }
+//        return v;
+//    }
+//
+//    function mul(v1, m) {
+//        var v = JSON.parse(JSON.stringify(v1)); //deep copy of v1
+//        for (var i = 0; i < v.length; i++) {
+//            v[i] *= m;
+//        }
+//        return v;
+//    }
+//
+//    function subtract(v1, v2) {
+//        return add(v1, mul(v2, -1));
+//    }
+//
+//    function normalize(v) {
+//        var norm = 0;
+//        for (var i = 0; i < v.length; i++) {
+//            norm += v[i] * v[i];
+//        }
+//        norm = Math.sqrt(norm);
+//        var v_copy = JSON.parse(JSON.stringify(v)); //deep copy of v1
+//        for (var i = 0; i < v_copy.length; i++) {
+//            v_copy[i] /= norm;
+//        }
+//        return v_copy;
+//    }
+//
+//    function getRayDir(x,y) {
+//        var basis_z = normalize(subtract(getCameraEye(),getCameraTarget()));
+//        var basis_x = normalize(math.cross(getCameraUp(), basis_z));
+//        var basis_y = normalize(math.cross(basis_z,basis_x));
+////        console.log(basis_z);
+////        console.log(basis_x);
+////        console.log(basis_y);
+//        var s = Math.tan((Math.PI/180)*(getCameraFov()/2));
+//        return normalize(add(add(mul(basis_z,-1), mul(basis_x, s*x)), mul(basis_y, s*y)));
+//    }
+//    console.log(getRayDir(-0.5, 0.5));
+
     //
     // TODO: Fill you code here and elsewhere in the HTML.
     //
@@ -404,11 +519,6 @@
 
             prepareProgram(gl, program);
 
-            var rgb = getBackgroundColor();
-            var colorLocation = gl.getUniformLocation(program, "color");
-            // Step 2: Set its value using the right function.
-            gl.uniform3f(colorLocation, rgb[0], rgb[1], rgb[2]);
-
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
             var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
             gl.enableVertexAttribArray(vertPositionLocation);
@@ -428,7 +538,38 @@
     }
 
     runCanvas("webglCanvas", "vertexShader", "fragmentShader", function(gl, program) {
-        // NO-OP
+        var rgb = getBackgroundColor();
+        var colorLocation = gl.getUniformLocation(program, "color");
+        // Step 2: Set its value using the right function.
+        gl.uniform3f(colorLocation, rgb[0], rgb[1], rgb[2]);
+
+        var cameraEyeLocation = gl.getUniformLocation(program, "cameraEye");
+        var cameraEye = getCameraEye();
+        gl.uniform3f(cameraEyeLocation, cameraEye[0], cameraEye[1], cameraEye[2]);
+
+        var cameraUpLocation = gl.getUniformLocation(program, "cameraUp");
+        var cameraUp = getCameraUp();
+        gl.uniform3f(cameraUpLocation, cameraUp[0], cameraUp[1], cameraUp[2]);
+
+        var cameraTargetLocation = gl.getUniformLocation(program, "cameraTarget");
+        var cameraTarget = getCameraTarget();
+        gl.uniform3f(cameraTargetLocation, cameraTarget[0], cameraTarget[1], cameraTarget[2]);
+
+        var cameraFovLocation = gl.getUniformLocation(program, "cameraFov");
+        var cameraFov = getCameraFov();
+        gl.uniform1f(cameraFovLocation, cameraFov);
+
+        var vertexPositionsLocation = gl.getUniformLocation(program, "vertexPositions[0]");
+        var vertexPositions = getScene().vertexPositions;
+        gl.uniform3fv(vertexPositionsLocation, vertexPositions);
+
+        var triangleColorsLocation = gl.getUniformLocation(program, "triangleColors[0]");
+        var triangleColors = getScene().triangleColors;
+        gl.uniform3fv(triangleColorsLocation, triangleColors);
+
+        var numOfTrianglesLocation = gl.getUniformLocation(program, "numOfTriangles");
+        var numOfTriangles = getScene().triangleColors.length/3;
+        gl.uniform1i(numOfTrianglesLocation, numOfTriangles);
     });
 </script>
 
