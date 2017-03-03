@@ -176,6 +176,7 @@
     uniform vec3 cameraTarget;
     uniform vec3 cameraUp;
     uniform float cameraFov;
+    uniform vec3 lightPos;
     uniform vec3 color;
 
     varying vec3 geom_coord;
@@ -187,6 +188,55 @@
         e2 = v2 - v0;
         return normalize(cross(e1,e2));
     }
+
+    bool intersect(vec3 location, vec3 rayOrigin, vec3 rayDir, float rayStart, float rayEnd) {
+        bool intersected = false;
+        for(int index=0; index<MAX_TRIANGLES; index++) {
+            if (index >= numOfTriangles)
+                break;
+
+            vec3 v0 = vertexPositions[3*index];
+            vec3 v1 = vertexPositions[3*index+1];
+            vec3 v2 = vertexPositions[3*index+2];
+
+            float a = v0.x-v1.x;
+            float b = v0.y-v1.y;
+            float c = v0.z-v1.z;
+
+            float d = v0.x-v2.x;
+            float e = v0.y-v2.y;
+            float f = v0.z-v2.z;
+
+            vec3 p = rayOrigin;
+            vec3 q = rayDir;
+
+            float g = q.x;
+            float h = q.y;
+            float i = q.z;
+            float j = v0.x - p.x;
+            float k = v0.y - p.y;
+            float l = v0.z - p.z;
+            float M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h-e*g);
+            float t = -(f*(a*k-j*b)+e*(j*c-a*l)+d*(b*l-k*c))/M;
+            if (t <= rayStart || t >= (rayEnd-0.0001)) {
+                continue;
+            }
+            float gamma = (i*(a*k-j*b)+h*(j*c-a*l)+g*(b*l-k*c))/M;
+            if (gamma <= 0.0 || gamma >= 1.0) {
+                continue;
+            }
+
+            float beta = (j*(e*i-h*f)+k*(g*f-d*i)+l*(d*h-e*g))/M;
+            if (beta <= 0.0 || beta >= (1.0 - gamma)) {
+                continue;
+            }
+            intersected = true;
+            break;
+        }
+        return intersected;
+    }
+
+
 
     void main() {
         gl_FragColor = vec4(color, 1.0);
@@ -274,6 +324,49 @@
                 rayEnd = t;
                 vec3 normalColor = 0.5*(getNormal(v0,v1,v2) + vec3(1.0,1.0,1.0));
                 gl_FragColor = vec4(normalColor, 1.0);
+            } else if (renderMode == 3) {
+                float a = v0.x-v1.x;
+                float b = v0.y-v1.y;
+                float c = v0.z-v1.z;
+
+                float d = v0.x-v2.x;
+                float e = v0.y-v2.y;
+                float f = v0.z-v2.z;
+
+                vec3 p = cameraEye;
+                vec3 q = rayDir;
+
+                float g = q.x;
+                float h = q.y;
+                float i = q.z;
+                float j = v0.x - p.x;
+                float k = v0.y - p.y;
+                float l = v0.z - p.z;
+                float M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h-e*g);
+                float t = -(f*(a*k-j*b)+e*(j*c-a*l)+d*(b*l-k*c))/M;
+                if (t <= 0.0 || t > rayEnd) {
+                    continue;
+                }
+                float gamma = (i*(a*k-j*b)+h*(j*c-a*l)+g*(b*l-k*c))/M;
+                if (gamma <= 0.0 || gamma >= 1.0) {
+                    continue;
+                }
+
+                float beta = (j*(e*i-h*f)+k*(g*f-d*i)+l*(d*h-e*g))/M;
+                if (beta <= 0.0 || beta >= (1.0 - gamma)) {
+                    continue;
+                }
+                rayEnd = t;
+                gl_FragColor = vec4(1.0,1.0,1.0, 1.0);
+
+                vec3 intersectLocation = cameraEye + t*rayDir;
+                vec3 shadowRayDir = normalize(intersectLocation - vec3(lightPos.xyz));
+                float shadowRayStart = 0.0001;
+                float shadowRayEnd = distance(vec3(lightPos.xyz), intersectLocation);
+
+                if (intersect(intersectLocation, lightPos, shadowRayDir, shadowRayStart, shadowRayEnd)) {
+                    gl_FragColor = vec4(0.0,0.0,0.0,1.0);
+                }
             }
         }
     }
@@ -572,6 +665,10 @@
         var renderModeLocation = gl.getUniformLocation(program, "renderMode");
         var renderMode = getRenderMode();
         gl.uniform1i(renderModeLocation, renderMode);
+
+        var lightPosLocation = gl.getUniformLocation(program, "lightPos");
+        var lightPos = getLightPosition();
+        gl.uniform3f(lightPosLocation, lightPos[0], lightPos[1], lightPos[2]);
     });
 </script>
 
