@@ -177,6 +177,7 @@
     uniform vec3 cameraUp;
     uniform float cameraFov;
     uniform vec3 lightPos;
+    uniform vec3 lightIntensity;
     uniform vec3 color;
 
     varying vec3 geom_coord;
@@ -363,6 +364,53 @@
                 vec3 shadowRayDir = normalize(intersectLocation - vec3(lightPos.xyz));
                 float shadowRayStart = 0.0001;
                 float shadowRayEnd = distance(vec3(lightPos.xyz), intersectLocation);
+
+                if (intersect(intersectLocation, lightPos, shadowRayDir, shadowRayStart, shadowRayEnd)) {
+                    gl_FragColor = vec4(0.0,0.0,0.0,1.0);
+                }
+            } else if (renderMode == 4) {
+                float a = v0.x-v1.x;
+                float b = v0.y-v1.y;
+                float c = v0.z-v1.z;
+
+                float d = v0.x-v2.x;
+                float e = v0.y-v2.y;
+                float f = v0.z-v2.z;
+
+                vec3 p = cameraEye;
+                vec3 q = rayDir;
+
+                float g = q.x;
+                float h = q.y;
+                float i = q.z;
+                float j = v0.x - p.x;
+                float k = v0.y - p.y;
+                float l = v0.z - p.z;
+                float M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h-e*g);
+                float t = -(f*(a*k-j*b)+e*(j*c-a*l)+d*(b*l-k*c))/M;
+                if (t <= 0.0 || t > rayEnd) {
+                    continue;
+                }
+                float gamma = (i*(a*k-j*b)+h*(j*c-a*l)+g*(b*l-k*c))/M;
+                if (gamma <= 0.0 || gamma >= 1.0) {
+                    continue;
+                }
+
+                float beta = (j*(e*i-h*f)+k*(g*f-d*i)+l*(d*h-e*g))/M;
+                if (beta <= 0.0 || beta >= (1.0 - gamma)) {
+                    continue;
+                }
+                rayEnd = t;
+
+                vec3 intersectLocation = cameraEye + t*rayDir;
+                vec3 shadowRayDir = normalize(intersectLocation - vec3(lightPos.xyz));
+                float shadowRayStart = 0.0001;
+                float shadowRayEnd = distance(vec3(lightPos.xyz), intersectLocation);
+                vec3 normal = getNormal(v0,v1,v2);
+                vec3 ll = shadowRayDir;
+                float r = shadowRayEnd;
+                float factors = max(0.0,dot(-1.0*normal,ll))/pow(r,2.0);
+                gl_FragColor = vec4(triangleColors[index].x*factors*lightIntensity.x, triangleColors[index].y*factors*lightIntensity.y, triangleColors[index].z*factors*lightIntensity.z, 1.0);
 
                 if (intersect(intersectLocation, lightPos, shadowRayDir, shadowRayStart, shadowRayEnd)) {
                     gl_FragColor = vec4(0.0,0.0,0.0,1.0);
@@ -669,6 +717,10 @@
         var lightPosLocation = gl.getUniformLocation(program, "lightPos");
         var lightPos = getLightPosition();
         gl.uniform3f(lightPosLocation, lightPos[0], lightPos[1], lightPos[2]);
+
+        var lightIntensityLocation = gl.getUniformLocation(program, "lightIntensity");
+        var lightIntensity = getLightIntensity();
+        gl.uniform3f(lightIntensityLocation, lightIntensity[0], lightIntensity[1], lightIntensity[2]);
     });
 </script>
 
