@@ -338,8 +338,9 @@
     var gl = initializeWebGL("webglCanvas");
     var program = createGlslProgram(gl, "vertexShader", "fragmentShader");
 
-    var shapeCount = 16;
-    var cornerCount = 16;
+    selectedCountries.push("Afghanistan")
+    var shapeCount = selectedCountries.length;
+    var cornerCount = selectedCountries.length;
 
     var vertexData = [];
     for (var i = 0; i < shapeCount; i++) {
@@ -380,40 +381,19 @@
     var sizes = [];
     var centerX = [];
     var centerY = [];
-    var velocityX = [];
-    var velocityY = [];
-    for(var i=0; i<shapeCount; i++) {
-        sizes.push(0.01 + Math.random()*0.09);
-        centerX.push((-1.0 + sizes[i]) + (2.0 - 2.0*sizes[i])*Math.random());
-        centerY.push((-1.0 + sizes[i]) + (2.0 - 2.0*sizes[i])*Math.random());
-        velocityX.push(-1.0 + 2.0 * Math.random());
-        velocityY.push(-1.0 + 2.0 * Math.random());
+
+    var currentYearIndex = yearSlider.slider("value") - 1800;
+    for (var i=0; i<selectedCountries.length; i++) {
+        var countryName = selectedCountries[i];
+        var gdpPerCapita = getGdpPerCapita();
+        var lifeExpectancies = getLifeExpectancy();
+        var populations = getPopulation();
+        sizes.push(populations[countryName][currentYearIndex]/10000000);
+        centerX.push(gdpPerCapita[countryName][currentYearIndex]/1000);
+        centerY.push(lifeExpectancies[countryName][currentYearIndex]/100);
     }
 
-    var lastTime = performance.now();
-
-    function updateWebGL(time) {
-        var delta = time - lastTime;
-        lastTime = time;
-
-        for(var i=0; i<shapeCount; i++) {
-            if (centerX[i] - sizes[i] < -1.0) {
-                velocityX[i] = Math.abs(velocityX[i]);
-            }
-            if (centerX[i] + sizes[i] > 1.0) {
-                velocityX[i] = -Math.abs(velocityX[i]);
-            }
-            if (centerY[i] - sizes[i] < -1.0) {
-                velocityY[i] = Math.abs(velocityY[i]);
-            }
-            if (centerY[i] + sizes[i] > 1.0) {
-                velocityY[i] = -Math.abs(velocityY[i]);
-            }
-
-            var factor = delta / 1000.0;
-            centerX[i] += velocityX[i] * factor;
-            centerY[i] += velocityY[i] * factor;
-        }
+    function updateWebGL() {
 
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -421,7 +401,7 @@
         gl.useProgram(program);
 
         // Set the uniforms
-        for(var i=0; i<shapeCount; i++) {
+        for(var i=0; i<sizes.length; i++) {
             var centerUniformName = "centers[" + i + "]";
             var centerLocation = gl.getUniformLocation(program, centerUniformName);
             gl.uniform2f(centerLocation, centerX[i], centerY[i]);
