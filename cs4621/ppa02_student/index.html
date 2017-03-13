@@ -21,7 +21,7 @@
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
 </head>
-<body>
+<>
 <div class="container">
     <h1>CS 4621 PPA2 <span class="subtitle">Data Visualization</span></h1>
 
@@ -29,8 +29,82 @@
 
     <ul>
         <li>Please list your team members with NetID in this unordered list.</li>
-        <li>Example: Steve Marschner (srm2)</li>
+        <li>Siyuan Wang(sw884)</li>
     </ul>
+
+    <div style="float:left; width: 60%">
+        <div align="center" id="currentYear"></div>
+        <div align="center">
+            <canvas id="webglCanvas" style="border: none; background-color: black;" width="512" height="512"></canvas>
+        </div>
+        <div>
+            <table>
+                <tr>
+                    <td>
+                        <button id="playButton">Play!</button>
+                    </td>
+                    <td width="20"></td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td width="720" id="yearSlider"></td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div style="float:right; width: 39%">
+        <div>Cursor</div>
+            <table border="1">
+                <tr>
+                    <td>GDP per Capita($)</td>
+                    <td id="gdpPerCapita" width="50%" ></td>
+                </tr>
+                <tr>
+                    <td>Life Expectancy(years)</td>
+                    <td id="lifeExpectancy" width="50%"></td>
+                </tr>
+            </table>
+        <div>Data Point</div>
+            <table border="1">
+                <tr>
+                    <td>Country</td>
+                    <td id="country" width="50%"></td>
+                </tr>
+                <tr>
+                    <td>Year</td>
+                    <td id="year" width="50%"></td>
+                </tr>
+                <tr>
+                    <td>Population</td>
+                    <td id="population" width="50%"></td>
+                </tr>
+                <tr>
+                    <td>GDP per Capita($)</td>
+                    <td id="gdpPerCapitaDataPoint" width="50%"></td>
+                </tr>
+                <tr>
+                    <td>Life Expectancy(years)</td>
+                    <td id="lifeExpectancyDataPoint" width="50%"></td>
+                </tr>
+            </table>
+        <div>Country List</div>
+        <table>
+            <tr>
+                <td width="300">
+                    <div style="overflow: auto; height: 320px;" id="countryCheckBoxes"></div>
+                </td>
+                <td width="10"></td>
+                <td width="300">
+                    <div style="overflow: auto; height: 320px" id="countryList"></div>
+                </td>
+            </tr>
+        </table><br>
+        <button id="selectAllButton">Select All</button> &nbsp;
+        <button id="deselectAllButton">Deselect All</button>
+    </div>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
@@ -41,6 +115,339 @@
 <script src="data/population.js"></script>
 <script src="data/gdp_per_capita.js"></script>
 <script src="data/life_expectancy.js"></script>
+<script>
+    // Year slider and the play button.
+    var yearSlider = $("#yearSlider");
+    var playButton = $("#playButton");
 
+    yearSlider.slider({
+        min: 1800,
+        max: 2015
+    });
+
+    var isPlaying = false;
+    var lastYearUpdate;
+    var yearUpdateInterval = 100.0;
+
+    function startPlay() {
+        isPlaying = true;
+        lastYearUpdate = performance.now();
+        yearSlider.slider("disable");
+    }
+
+    function stopPlay() {
+        isPlaying = false;
+        yearSlider.slider("enable");
+    }
+
+    playButton.click(function () {
+        if (isPlaying) {
+            stopPlay();
+        } else {
+            startPlay();
+        }
+    });
+
+    function updateUi() {
+        var year = yearSlider.slider("value");
+
+        if (isPlaying) {
+            if (year == 2015) {
+                stopPlay();
+            } else {
+                var currentTime = performance.now();
+                if (currentTime - lastYearUpdate > yearUpdateInterval) {
+                    lastYearUpdate = currentTime;
+                    yearSlider.slider("value", year + 1);
+                }
+            }
+        }
+
+        year = yearSlider.slider("value");
+        $("#currentYear").html("<h1>" + year + "</h1>");
+
+        window.requestAnimationFrame(updateUi);
+    }
+    window.requestAnimationFrame(updateUi);
+
+    // Checkbox lists.
+    var countries = getCountryList();
+
+    var selectedCountries = [];
+
+    function updatecountryList() {
+        $("#countryList").html(
+                "<ul>" +
+                selectedCountries.map(function(name) {
+                    return "<li>" + name + "</li>";
+                }).join("") +
+                "</ul>"
+        );
+    }
+
+    function createCountryCheckBoxes() {
+        var countryHtmls = [];
+        var i;
+        for(i=0;i<countries.length;i++) {
+            var name = countries[i].name;
+            countryHtmls.push("<input type='checkbox' value='" + name + "' id='checkBox" + i + "'> " + name + "<br>");
+        }
+        $("#countryCheckBoxes").html(countryHtmls.join(""));
+
+        function setCheckBoxChangeFunction(i) {
+            var checkBoxName = "checkBox" + i;
+            var checkBox = $("#" + checkBoxName);
+            var name = countries[i].name;
+            checkBox.change(function() {
+                var checked = checkBox.prop("checked");
+                if (!checked) {
+                    var index = selectedCountries.indexOf(name);
+                    if (index > -1) {
+                        selectedCountries.splice(index,1);
+                    }
+                } else {
+                    selectedCountries.push(name);
+                }
+                updatecountryList();
+            });
+        }
+
+        for(i=0;i<countries.length;i++) {
+            setCheckBoxChangeFunction(i);
+        }
+    }
+    createCountryCheckBoxes();
+
+    function addCountry(country) {
+        var name = country.name;
+        var index = countries.indexOf(country);
+        if (index > -1) {
+            var checkBoxName = "checkBox" + index;
+            var checkBox = $("#" + checkBoxName);
+            if (!checkBox.prop("checked")) {
+                checkBox.prop("checked", true);
+                selectedCountries.push(name);
+            }
+        }
+    }
+
+    function removeCountry(name) {
+        var index = countries.indexOf(name);
+        if (index > -1) {
+            var checkBoxName = "checkBox" + index;
+            var checkBox = $("#" + checkBoxName);
+            if (checkBox.prop("checked")) {
+                selectedCountries.splice(name, 1);
+                checkBox.prop("checked", false);
+            }
+        }
+    }
+
+    $("#selectAllButton").click(function() {
+        countries.forEach(addCountry);
+        updatecountryList();
+    });
+
+    $("#deselectAllButton").click(function() {
+        countries.forEach(removeCountry);
+        updatecountryList();
+    });
+</script>
+<script id="vertexShader" type="x-shader/x-vertex">
+    #define SHAPE_COUNT 16
+
+    uniform vec2 centers[SHAPE_COUNT];
+    uniform float sizes[SHAPE_COUNT];
+
+    attribute vec2 position;
+    attribute float shapeIndex;
+
+    void main() {
+        vec2 center = centers[int(shapeIndex)];
+        float size = sizes[int(shapeIndex)];
+        vec2 p = size*position + center;
+        gl_Position = vec4(p, 0.0, 1.0);
+    }
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+    precision highp float;
+
+    void main() {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+</script>
+<script>
+    function initializeWebGL(canvasName) {
+        var canvas = $("#" + canvasName);
+        // Getting WebGL context the right way
+        var gl = null;
+        try {
+            gl = canvas[0].getContext("experimental-webgl");
+            if (!gl) {
+                gl = canvas[0].getContext("webgl");
+            }
+        } catch (error) {
+            // NO-OP
+        }
+        if (!gl) {
+            alert("Could not get WebGL context!");
+            throw new Error("Could not get WebGL context!");
+        }
+        return gl;
+    }
+
+    function createShader(gl, shaderScriptId) {
+        var shaderScript = $("#" + shaderScriptId);
+        var shaderSource = shaderScript[0].text;
+        var shaderType = null;
+        if (shaderScript[0].type == "x-shader/x-vertex") {
+            shaderType = gl.VERTEX_SHADER;
+        } else if (shaderScript[0].type == "x-shader/x-fragment") {
+            shaderType = gl.FRAGMENT_SHADER;
+        } else {
+            throw new Error("Invalid shader type: " + shaderScript[0].type)
+        }
+        var shader = gl.createShader(shaderType);
+        gl.shaderSource(shader, shaderSource);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            var infoLog = gl.getShaderInfoLog(shader);
+            gl.deleteShader(shader);
+            throw new Error("An error occurred compiling the shader: " + infoLog);
+        } else {
+            return shader;
+        }
+    }
+
+    function createGlslProgram(gl, vertexShaderId, fragmentShaderId) {
+        var program = gl.createProgram();
+        gl.attachShader(program, createShader(gl, vertexShaderId));
+        gl.attachShader(program, createShader(gl, fragmentShaderId));
+        gl.linkProgram(program);
+        gl.validateProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            var infoLog = gl.getProgramInfoLog(program);
+            gl.deleteProgram(program);
+            throw new Error("An error occurred linking the program: " + infoLog);
+        } else {
+            return program;
+        }
+    }
+
+    var gl = initializeWebGL("webglCanvas");
+    var program = createGlslProgram(gl, "vertexShader", "fragmentShader");
+
+    var shapeCount = 16;
+    var cornerCount = 16;
+
+    var vertexData = [];
+    for (var i = 0; i < shapeCount; i++) {
+        vertexData.push(0.0);
+        vertexData.push(0.0);
+        vertexData.push(i*1.0);
+
+        for (var j = 0; j < cornerCount; j++) {
+            var theta = 2*Math.PI*j/cornerCount;
+            var x = Math.cos(theta);
+            var y = Math.sin(theta);
+            vertexData.push(x);
+            vertexData.push(y);
+            vertexData.push(i*1.0);
+        }
+    }
+    var vertexArray = new Float32Array(vertexData);
+    var vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    var indexData = [];
+    for (var i = 0; i < shapeCount; i++) {
+        var start = i*(cornerCount+1);
+        for(var j = 0; j < cornerCount; j ++) {
+            indexData.push(start);
+            indexData.push(start + j + 1);
+            indexData.push(start + (j + 1) % cornerCount + 1);
+        }
+    }
+    var indexArray = new Uint16Array(indexData);
+    var indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    var sizes = [];
+    var centerX = [];
+    var centerY = [];
+    var velocityX = [];
+    var velocityY = [];
+    for(var i=0; i<shapeCount; i++) {
+        sizes.push(0.01 + Math.random()*0.09);
+        centerX.push((-1.0 + sizes[i]) + (2.0 - 2.0*sizes[i])*Math.random());
+        centerY.push((-1.0 + sizes[i]) + (2.0 - 2.0*sizes[i])*Math.random());
+        velocityX.push(-1.0 + 2.0 * Math.random());
+        velocityY.push(-1.0 + 2.0 * Math.random());
+    }
+
+    var lastTime = performance.now();
+
+    function updateWebGL(time) {
+        var delta = time - lastTime;
+        lastTime = time;
+
+        for(var i=0; i<shapeCount; i++) {
+            if (centerX[i] - sizes[i] < -1.0) {
+                velocityX[i] = Math.abs(velocityX[i]);
+            }
+            if (centerX[i] + sizes[i] > 1.0) {
+                velocityX[i] = -Math.abs(velocityX[i]);
+            }
+            if (centerY[i] - sizes[i] < -1.0) {
+                velocityY[i] = Math.abs(velocityY[i]);
+            }
+            if (centerY[i] + sizes[i] > 1.0) {
+                velocityY[i] = -Math.abs(velocityY[i]);
+            }
+
+            var factor = delta / 1000.0;
+            centerX[i] += velocityX[i] * factor;
+            centerY[i] += velocityY[i] * factor;
+        }
+
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.useProgram(program);
+
+        // Set the uniforms
+        for(var i=0; i<shapeCount; i++) {
+            var centerUniformName = "centers[" + i + "]";
+            var centerLocation = gl.getUniformLocation(program, centerUniformName);
+            gl.uniform2f(centerLocation, centerX[i], centerY[i]);
+        }
+        var sizeLocation = gl.getUniformLocation(program, "sizes[0]");
+        gl.uniform1fv(sizeLocation, sizes);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        var positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 4*3, 0);
+        var shapeIndexLocation = gl.getAttribLocation(program, "shapeIndex");
+        gl.enableVertexAttribArray(shapeIndexLocation);
+        gl.vertexAttribPointer(shapeIndexLocation, 1, gl.FLOAT, false, 4*3, 4*2);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.drawElements(gl.TRIANGLES, shapeCount * cornerCount * 3, gl.UNSIGNED_SHORT, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        gl.useProgram(null);
+
+        window.requestAnimationFrame(updateWebGL);
+    }
+
+    window.requestAnimationFrame(updateWebGL);
+</script>
 </body>
 </html>
