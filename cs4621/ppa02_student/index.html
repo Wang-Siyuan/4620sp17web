@@ -166,6 +166,7 @@
         year = yearSlider.slider("value");
         $("#currentYear").html("<h1>" + year + "</h1>");
 
+        updateCircleData();
         window.requestAnimationFrame(updateUi);
     }
     window.requestAnimationFrame(updateUi);
@@ -338,61 +339,93 @@
     var gl = initializeWebGL("webglCanvas");
     var program = createGlslProgram(gl, "vertexShader", "fragmentShader");
 
-    selectedCountries.push("Afghanistan")
-    var shapeCount = selectedCountries.length;
-    var cornerCount = selectedCountries.length;
-
+    var shapeCount = 0;
+    var cornerCount = 32;
     var vertexData = [];
-    for (var i = 0; i < shapeCount; i++) {
-        vertexData.push(0.0);
-        vertexData.push(0.0);
-        vertexData.push(i*1.0);
-
-        for (var j = 0; j < cornerCount; j++) {
-            var theta = 2*Math.PI*j/cornerCount;
-            var x = Math.cos(theta);
-            var y = Math.sin(theta);
-            vertexData.push(x);
-            vertexData.push(y);
-            vertexData.push(i*1.0);
-        }
-    }
-    var vertexArray = new Float32Array(vertexData);
-    var vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    var indexData = [];
-    for (var i = 0; i < shapeCount; i++) {
-        var start = i*(cornerCount+1);
-        for(var j = 0; j < cornerCount; j ++) {
-            indexData.push(start);
-            indexData.push(start + j + 1);
-            indexData.push(start + (j + 1) % cornerCount + 1);
-        }
-    }
-    var indexArray = new Uint16Array(indexData);
-    var indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
+    var vertexBuffer;
+    var indexBuffer
     var sizes = [];
     var centerX = [];
     var centerY = [];
 
-    var currentYearIndex = yearSlider.slider("value") - 1800;
-    for (var i=0; i<selectedCountries.length; i++) {
-        var countryName = selectedCountries[i];
-        var gdpPerCapita = getGdpPerCapita();
-        var lifeExpectancies = getLifeExpectancy();
-        var populations = getPopulation();
-        sizes.push(populations[countryName][currentYearIndex]/10000000);
-        centerX.push(gdpPerCapita[countryName][currentYearIndex]/1000);
-        centerY.push(lifeExpectancies[countryName][currentYearIndex]/100);
-    }
+    var gdpPerCapitas = getGdpPerCapita();
+    var lifeExpectancies = getLifeExpectancy();
+    var populations = getPopulation();
+    selectedCountries.push("Afghanistan");
 
+
+    function flattenValue(someMap) {
+        var keys = Object.keys(someMap);
+        var arrayOfValueArray = keys.map(function(t) { return someMap[t];});
+        return [].concat.apply([], arrayOfValueArray);
+    }
+    var minGDP = Math.min.apply(Math, flattenValue(gdpPerCapitas));
+    var maxGDP = Math.max.apply(Math, flattenValue(gdpPerCapitas));
+    var minLifeExpectancy = Math.min.apply(Math, flattenValue(lifeExpectancies));
+    var maxLifeExpectancy = Math.max.apply(Math, flattenValue(lifeExpectancies));
+    var minPopulation = Math.min.apply(Math, flattenValue(populations));
+    var maxPopulation = Math.max.apply(Math, flattenValue(populations));
+
+    function updateCircleData() {
+        sizes = [];
+        centerX = [];
+        centerY = [];
+        shapeCount = selectedCountries.length;
+
+        vertexData = []
+        for (var i = 0; i < shapeCount; i++) {
+            vertexData.push(0.0);
+            vertexData.push(0.0);
+            vertexData.push(i*1.0);
+
+            for (var j = 0; j < cornerCount; j++) {
+                var theta = 2*Math.PI*j/cornerCount;
+                var x = Math.cos(theta);
+                var y = Math.sin(theta);
+                vertexData.push(x);
+                vertexData.push(y);
+                vertexData.push(i*1.0);
+            }
+        }
+        var vertexArray = new Float32Array(vertexData);
+        vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        var indexData = [];
+        for (var i = 0; i < shapeCount; i++) {
+            var start = i*(cornerCount+1);
+            for(var j = 0; j < cornerCount; j ++) {
+                indexData.push(start);
+                indexData.push(start + j + 1);
+                indexData.push(start + (j + 1) % cornerCount + 1);
+            }
+        }
+        var indexArray = new Uint16Array(indexData);
+        indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        var currentYearIndex = yearSlider.slider("value") - 1800;
+        for (var i=0; i<selectedCountries.length; i++) {
+            var countryName = selectedCountries[i];
+            var populationVal = populations[countryName][currentYearIndex];
+            var normalizedPopulationval = 10*(populationVal-minPopulation)/(maxPopulation-minPopulation);
+            sizes.push(normalizedPopulationval);
+            var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex];
+            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP))*2-1;
+            centerX.push(normalizedGDPPerCapita);
+            var lifeExpectancy = lifeExpectancies[countryName][currentYearIndex];
+            var normalizedLifeExpectancy = ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy))*2-1;
+            centerY.push(normalizedLifeExpectancy);
+//            console.log(countryName);
+//            console.log(normalizedGDPPerCapita);
+//            console.log(normalizedLifeExpectancy);
+//            console.log(normalizedPopulationval);
+        }
+    }
     function updateWebGL() {
 
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -427,6 +460,7 @@
         window.requestAnimationFrame(updateWebGL);
     }
 
+    updateCircleData();
     window.requestAnimationFrame(updateWebGL);
 </script>
 </body>
