@@ -35,7 +35,7 @@
     <div style="float:left; width: 60%">
         <div align="center" id="currentYear"></div>
         <div align="center">
-            <canvas id="webglCanvas" style="border: none; background-color: lightyellow;" width="512" height="512"></canvas>
+            <canvas id="webglCanvas" style="border: none; background-color: lavenderblush;" width="512" height="512"></canvas>
         </div>
         <div>
             <table>
@@ -43,11 +43,55 @@
                     <td>
                         <button id="playButton">Play!</button>
                     </td>
-                    <td width="20"></td>
+                    <td width="10"></td>
                     <td>
                         <table>
                             <tr>
                                 <td width="720" id="yearSlider"></td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            <table class="table">
+                <tr>
+                    <td width="200">
+                        <div>GDP per Capita Scale</div>
+                    </td>
+                    <td>
+                        <select id="gdpPerCapitaScale">
+                            <option value="Logarithm" selected="selected">Logarithm</option>
+                            <option value="Linear">Linear</option>
+                        </select>
+                    </td>
+                    <td width="250">
+                        <div>Life Expectancy Scale</div>
+                    </td>
+                    <td>
+                        <select id="lifeExpectancyScale">
+                            <option value="Logarithm">Logarithm</option>
+                            <option value="Linear" selected="selected">Linear</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div>Population Scale</div>
+                    </td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td width="360" id="populationScaleSlider"></td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td>
+                        <div>Transparency</div>
+                    </td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td width="360" id="transparencySlider"></td>
                             </tr>
                         </table>
                     </td>
@@ -116,6 +160,20 @@
 <script src="data/gdp_per_capita.js"></script>
 <script src="data/life_expectancy.js"></script>
 <script>
+    var populationScaleSlider = $("#populationScaleSlider");
+    var transparencySlider = $("#transparencySlider");
+
+    populationScaleSlider.slider({
+        min:1,
+        max:100
+    });
+    transparencySlider.slider({
+        min:1,
+        max:100
+    });
+</script>
+
+<script>
     // Year slider and the play button.
     var yearSlider = $("#yearSlider");
     var playButton = $("#playButton");
@@ -133,9 +191,11 @@
         isPlaying = true;
         lastYearUpdate = performance.now();
         yearSlider.slider("disable");
+        playButton.text("Stop!");
     }
 
     function stopPlay() {
+        playButton.text("Play!");
         isPlaying = false;
         yearSlider.slider("enable");
     }
@@ -282,13 +342,13 @@
 
     void main() {
         if (int(region) == 1) {
-            gl_FragColor = vec4(0.16,0.06,0.53, 1.0);
+            gl_FragColor = vec4(1.0,0.0,0.0, 1.0);
         } else if (int(region) == 2) {
-            gl_FragColor = vec4(0.4,0.06,0.23, 1.0);
+            gl_FragColor = vec4(0.0,1.0,0.0, 1.0);
         } else if (int(region) == 3) {
-            gl_FragColor = vec4(0.28,0.97,0.35, 1.0);
+            gl_FragColor = vec4(0.0,0.0,1.0, 1.0);
         } else {
-            gl_FragColor = vec4(0.61,0.28,0.46, 1.0);
+            gl_FragColor = vec4(1.0,1.0,0.0, 1.0);
         }
     }
 </script>
@@ -369,6 +429,8 @@
     var countryColors = {};
     var countryList = getCountryList();
     var shapeCount = countryList.length;
+    var populationScaleSlider = $("#populationScaleSlider");
+    var transparencySlider = $("#transparencySlider");
 
     function flattenValue(someMap) {
         var keys = Object.keys(someMap);
@@ -430,7 +492,7 @@
 
             var countryName = countryList[i]["name"];
             var populationVal = populations[countryName][currentYearIndex];
-            var normalizedPopulationval = Math.sqrt((populationVal-minPopulation)/(10*(maxPopulation-minPopulation)));
+            var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
             sizes.push(normalizedPopulationval);
 
             var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex];
