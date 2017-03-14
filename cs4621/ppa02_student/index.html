@@ -226,7 +226,7 @@
         year = yearSlider.slider("value");
         $("#currentYear").html("<h1>" + year + "</h1>");
 
-        updateCircleData();
+//        updateCircleData();
         window.requestAnimationFrame(updateUi);
     }
     window.requestAnimationFrame(updateUi);
@@ -320,35 +320,50 @@
     uniform vec2 centers[SHAPE_COUNT];
     uniform float sizes[SHAPE_COUNT];
     uniform float regions[SHAPE_COUNT];
+    uniform int isGrid;
 
     attribute vec2 position;
     attribute float shapeIndex;
+    attribute vec3 vert_position;
     varying float region;
 
+    varying vec3 curr_position;
+
     void main() {
-        vec2 center = centers[int(shapeIndex)];
-        float size = sizes[int(shapeIndex)];
-        vec2 p = size*position + center;
-        gl_Position = vec4(p, 0.0, 1.0);
-        region = regions[int(shapeIndex)];
+        if (isGrid == 1) {
+            gl_Position = vec4(vert_position, 1.0);
+        } else {
+            vec2 center = centers[int(shapeIndex)];
+            float size = sizes[int(shapeIndex)];
+            vec2 p = size*position + center;
+            gl_Position = vec4(p, 0.0, 1.0);
+            region = regions[int(shapeIndex)];
+        }
+        curr_position = vert_position;
     }
 </script>
 
 <script id="fragmentShader" type="x-shader/x-fragment">
     #define SHAPE_COUNT 195
-
     precision highp float;
+
+    varying vec3 curr_position;
     varying float region;
+    uniform int isGridForFragmentShader;
 
     void main() {
-        if (int(region) == 1) {
-            gl_FragColor = vec4(1.0,0.0,0.0, 1.0);
-        } else if (int(region) == 2) {
-            gl_FragColor = vec4(0.0,1.0,0.0, 1.0);
-        } else if (int(region) == 3) {
-            gl_FragColor = vec4(0.0,0.0,1.0, 1.0);
+        if (isGridForFragmentShader == 1) {
+            gl_FragColor = vec4(1.0,1.0,1.0, 1.0);
         } else {
-            gl_FragColor = vec4(1.0,1.0,0.0, 1.0);
+            if (int(region) == 1) {
+                gl_FragColor = vec4(1.0,0.0,0.0, 1.0);
+            } else if (int(region) == 2) {
+                gl_FragColor = vec4(0.0,1.0,0.0, 1.0);
+            } else if (int(region) == 3) {
+                gl_FragColor = vec4(0.0,0.0,1.0, 1.0);
+            } else {
+                gl_FragColor = vec4(1.0,1.0,0.0, 1.0);
+            }
         }
     }
 </script>
@@ -415,8 +430,8 @@
 
     var cornerCount = 32;
     var vertexData = [];
-    var vertexBuffer;
-    var indexBuffer
+    var indexData = [];
+    var vertexArray;
     var sizes = [];
     var centerX = [];
     var centerY = [];
@@ -426,7 +441,6 @@
     var gdpPerCapitas = getGdpPerCapita();
     var lifeExpectancies = getLifeExpectancy();
     var populations = getPopulation();
-    var countryColors = {};
     var countryList = getCountryList();
     var shapeCount = countryList.length;
     var populationScaleSlider = $("#populationScaleSlider");
@@ -451,7 +465,8 @@
         regions = [];
         colors = [];
 
-        vertexData = []
+        vertexData = [];
+        indexData = [];
         for (var i = 0; i < shapeCount; i++) {
             vertexData.push(0.0);
             vertexData.push(0.0);
@@ -466,13 +481,7 @@
                 vertexData.push(i*1.0);
             }
         }
-        var vertexArray = new Float32Array(vertexData);
-        vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        var indexData = [];
         for (var i = 0; i < shapeCount; i++) {
             var start = i*(cornerCount+1);
             for(var j = 0; j < cornerCount; j ++) {
@@ -481,11 +490,6 @@
                 indexData.push(start + (j + 1) % cornerCount + 1);
             }
         }
-        var indexArray = new Uint16Array(indexData);
-        indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
         var currentYearIndex = yearSlider.slider("value") - 1800;
         for (var i=0; i<shapeCount; i++) {
@@ -516,15 +520,67 @@
         }
     }
 
-    function updateWebGL() {
+    function updateGridData() {
 
+        vertexData = [
+            -1.0, -1.0, 0.0,  // Lower left
+            0.0,  0.0,
+            1.0, -1.0, 0.0,  // Lower right
+            1.0,  0.0,
+            1.0,  1.0, 0.0,  // Top right
+            1.0,  1.0,
+            -1.0,  1.0, 0.0,  // Top left
+            0.0,  1.0
+        ];
+
+        indexData = [0, 1, 2, 0, 2, 3];
+    }
+
+    function updateWebGL() {
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
+        updateGridData();
+
+        gl.useProgram(program);
+
+        var isGridLocation = gl.getUniformLocation(program, "isGrid");
+        gl.uniform1i(isGridLocation, 1);
+
+        var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
+        gl.uniform1i(isGridLocation, 1);
+
+        var gridVertexArray = new Float32Array(vertexData);
+        var gridVertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, gridVertexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        var gridIndexArray = new Uint16Array(indexData);
+        var gridIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gridIndexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
+        var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
+        gl.enableVertexAttribArray(vertPositionLocation);
+        gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 4 * 5, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridIndexBuffer);
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        gl.useProgram(null);
+
+        updateCircleData();
+        console.log(vertexData.length);
+        console.log(indexData.length);
 
         gl.useProgram(program);
 
         // Set the uniforms
-        for(var i=0; i<sizes.length; i++) {
+        for (var i = 0; i < sizes.length; i++) {
             var centerUniformName = "centers[" + i + "]";
             var centerLocation = gl.getUniformLocation(program, centerUniformName);
             gl.uniform2f(centerLocation, centerX[i], centerY[i]);
@@ -535,16 +591,41 @@
         var regionLocation = gl.getUniformLocation(program, "regions[0]");
         gl.uniform1fv(regionLocation, regions);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        var positionLocation = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 4*3, 0);
-        var shapeIndexLocation = gl.getAttribLocation(program, "shapeIndex");
-        gl.enableVertexAttribArray(shapeIndexLocation);
-        gl.vertexAttribPointer(shapeIndexLocation, 1, gl.FLOAT, false, 4*3, 4*2);
+        var isGridLocation = gl.getUniformLocation(program, "isGrid");
+        gl.uniform1i(isGridLocation, 0);
+
+        var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
+        gl.uniform1i(isGridLocation, 0);
+
+        var isXLinear = gl.getUniformLocation(program, "isXLinear");
+        gl.uniform1i(isXLinear, 0);
+
+        var isYLinear = gl.getUniformLocation(program, "isYLinear");
+        gl.uniform1i(isYLinear, 0);
+
+        var circleVertexArray = new Float32Array(vertexData);
+        var circleVertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, circleVertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, circleVertexArray, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        var circleIndexArray = new Uint16Array(indexData);
+        var circleIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circleIndexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, circleVertexBuffer);
+        var positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 4 * 3, 0);
+        var shapeIndexLocation = gl.getAttribLocation(program, "shapeIndex");
+        gl.enableVertexAttribArray(shapeIndexLocation);
+        gl.vertexAttribPointer(shapeIndexLocation, 1, gl.FLOAT, false, 4 * 3, 4 * 2);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
+        gl.disableVertexAttribArray(vertPositionLocation);
         gl.drawElements(gl.TRIANGLES, shapeCount * cornerCount * 3, gl.UNSIGNED_SHORT, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -553,8 +634,8 @@
         window.requestAnimationFrame(updateWebGL);
     }
 
-    updateCircleData();
     window.requestAnimationFrame(updateWebGL);
+
 </script>
 </body>
 </html>
