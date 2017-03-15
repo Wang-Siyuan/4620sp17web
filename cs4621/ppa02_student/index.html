@@ -433,14 +433,15 @@
     var yLogGridSize = 2;
     var totalLineCount = 0;
     var cornerCount = 32;
-    var vertexData = [];
-    var indexData = [];
-    var vertexArray;
+    var circleVertexData = [];
+    var circleIndexData = [];
+    var gridVertexData = [];
+    var highlightVertexData = [];
+    var highlightIndexData = [];
     var sizes = [];
     var centerX = [];
     var centerY = [];
     var regions = [];
-    var colors = [];
     var circleData = [];
 
     var gdpPerCapitas = getGdpPerCapita();
@@ -466,37 +467,46 @@
     var minPopulation = Math.min.apply(Math, flattenValue(populations));
     var maxPopulation = Math.max.apply(Math, flattenValue(populations));
 
+    var prevYearSliderValue = -1.0;
     function updateCircleData() {
+        if (prevYearSliderValue == yearSlider.slider("value")) {
+            return;
+        }
         sizes = [];
         centerX = [];
         centerY = [];
         regions = [];
-        colors = [];
+
+        highlightSizes = [];
+        highlightCenterX = [];
+        highlightCenterY = [];
+        highlightRegions = [];
+
         circleData = [];
 
-        vertexData = [];
-        indexData = [];
+        circleVertexData = [];
+        circleIndexData = [];
         for (var i = 0; i < shapeCount; i++) {
-            vertexData.push(0.0);
-            vertexData.push(0.0);
-            vertexData.push(i*1.0);
+            circleVertexData.push(0.0);
+            circleVertexData.push(0.0);
+            circleVertexData.push(i*1.0);
 
             for (var j = 0; j < cornerCount; j++) {
                 var theta = 2*Math.PI*j/cornerCount;
                 var x = Math.cos(theta);
                 var y = Math.sin(theta);
-                vertexData.push(x);
-                vertexData.push(y);
-                vertexData.push(i*1.0);
+                circleVertexData.push(x);
+                circleVertexData.push(y);
+                circleVertexData.push(i*1.0);
             }
         }
 
         for (var i = 0; i < shapeCount; i++) {
             var start = i*(cornerCount+1);
             for(var j = 0; j < cornerCount; j ++) {
-                indexData.push(start);
-                indexData.push(start + j + 1);
-                indexData.push(start + (j + 1) % cornerCount + 1);
+                circleIndexData.push(start);
+                circleIndexData.push(start + j + 1);
+                circleIndexData.push(start + (j + 1) % cornerCount + 1);
             }
         }
 
@@ -519,23 +529,45 @@
             centerX.push(normalizedGdpPerCapita);
             var normalizedLifeExpectancy = lifeExpectancyToScale(lifeExpectancy, isYLinear);
             centerY.push(normalizedLifeExpectancy);
-            circleData.push([populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy]);
 
             var region = countryList[i]["region"];
+            var regionCode = 4;
             if (region == "Asia") {
-                regions.push(1);
+                regionCode = 1;
             } else if (region === "Europe") {
-                regions.push(2);
+                regionCode = 2;
             } else if (region == "Africa") {
-                regions.push(3);
-            } else {
-                regions.push(4);
+                regionCode = 3;
             }
+            regions.push(regionCode);
+            circleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
         }
+        prevYearSliderValue = yearSlider.slider("value");
     }
 
     function updateHighlightCircleData() {
-        
+
+        highlightVertexData = [];
+        highlightIndexData = [];
+        highlightVertexData.push(0.0);
+        highlightVertexData.push(0.0);
+        highlightVertexData.push(0.0);
+
+        for (var j = 0; j < cornerCount; j++) {
+            var theta = 2*Math.PI*j/cornerCount;
+            var x = Math.cos(theta);
+            var y = Math.sin(theta);
+            highlightVertexData.push(x);
+            highlightVertexData.push(y);
+            highlightVertexData.push(0.0);
+        }
+
+        var start = 0;
+        for(var j = 0; j < cornerCount; j ++) {
+            highlightIndexData.push(start);
+            highlightIndexData.push(start + j + 1);
+            highlightIndexData.push(start + (j + 1) % cornerCount + 1);
+        }
     }
 
     function gdpPerCapitaToScale(gdpPerCapita, isLinear){
@@ -573,28 +605,28 @@
     function updateGridData() {
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
-        vertexData = [];
+        gridVertexData = [];
         totalLineCount = 0;
         if (isXLinear) {
             for (var i = 1; i < xLinearGridSize; i++) {
-                vertexData.push(-1 + i * (2 / xLinearGridSize));
-                vertexData.push(-1);
-                vertexData.push(0);
-                vertexData.push(-1 + i * (2 / xLinearGridSize));
-                vertexData.push(1);
-                vertexData.push(0);
+                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
+                gridVertexData.push(-1);
+                gridVertexData.push(0);
+                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
+                gridVertexData.push(1);
+                gridVertexData.push(0);
                 totalLineCount += 1;
             }
         } else {
             for (var i = 0; i < xLogGridSize; i++) {
                 var factor = Math.pow(10, i);
                 for (var j = 1; j < 10; j++) {
-                    vertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
-                    vertexData.push(-1);
-                    vertexData.push(0);
-                    vertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
-                    vertexData.push(1);
-                    vertexData.push(0);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    gridVertexData.push(-1);
+                    gridVertexData.push(0);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    gridVertexData.push(1);
+                    gridVertexData.push(0);
                     totalLineCount += 1;
                 }
             }
@@ -602,24 +634,24 @@
 
         if (isYLinear) {
             for (var i = 1; i < yLinearGridSize; i++) {
-                vertexData.push(-1);
-                vertexData.push(-1 + i * (2 / yLinearGridSize));
-                vertexData.push(0);
-                vertexData.push(1);
-                vertexData.push(-1 + i * (2 / yLinearGridSize));
-                vertexData.push(0);
+                gridVertexData.push(-1);
+                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
+                gridVertexData.push(0);
+                gridVertexData.push(1);
+                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
+                gridVertexData.push(0);
                 totalLineCount += 1;
             }
         } else {
             for (var i = 0; i < yLogGridSize; i++) {
                 var factor = Math.pow(10, i);
                 for (var j = 1; j < 10; j++) {
-                    vertexData.push(-1);
-                    vertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
-                    vertexData.push(0);
-                    vertexData.push(1);
-                    vertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
-                    vertexData.push(0);
+                    gridVertexData.push(-1);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    gridVertexData.push(0);
+                    gridVertexData.push(1);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    gridVertexData.push(0);
                     totalLineCount += 1;
                 }
             }
@@ -646,7 +678,7 @@
         var isYLinear = gl.getUniformLocation(program, "isYLinear");
         gl.uniform1i(isYLinear, 1);
 
-        var gridVertexArray = new Float32Array(vertexData);
+        var gridVertexArray = new Float32Array(gridVertexData);
         var gridVertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, gridVertexArray, gl.STATIC_DRAW);
@@ -694,13 +726,13 @@
         var alphaLocation = gl.getUniformLocation(program, "alpha");
         gl.uniform1f(alphaLocation, transparencySlider.slider("value")/100.0);
 
-        var circleVertexArray = new Float32Array(vertexData);
+        var circleVertexArray = new Float32Array(circleVertexData);
         var circleVertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, circleVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, circleVertexArray, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        var circleIndexArray = new Uint16Array(indexData);
+        var circleIndexArray = new Uint16Array(circleIndexData);
         var circleIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circleIndexArray, gl.STATIC_DRAW);
@@ -727,7 +759,7 @@
 
     window.requestAnimationFrame(updateWebGL);
 
-    $("#webglCanvas").mousemove(function(event){
+    function updateCursorData(event) {
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         var clientRect = $("#webglCanvas")[0].getBoundingClientRect();
@@ -738,8 +770,19 @@
         var yPos = clientRect.bottom - event.clientY;
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
         $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+    }
 
+    $("#webglCanvas").mousemove(function(event){
+        updateCursorData(event);
+    });
 
+    $("#webglCanvas").mouseover(function(event){
+        updateCursorData(event);
+    });
+
+    $("#webglCanvas").mouseout(function(event){
+        $("#gdpPerCapita").text("");
+        $("#lifeExpectancy").text("");
     });
 
 </script>
