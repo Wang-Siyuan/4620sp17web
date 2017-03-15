@@ -509,24 +509,9 @@
             }
             var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
             sizes.push(normalizedPopulationval);
-
-//            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP));
-//            if (isXLinear) {
-//                centerX.push(normalizedGDPPerCapita*2-1);
-//            } else {
-//                var scaledGDPPerCapita = (Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize;
-//                centerX.push(scaledGDPPerCapita*2-1);
-//            }
+            
             centerX.push(gdpPerCapitaToScale(gdpPerCapita, isXLinear));
-
-
-            var normalizedLifeExpectancy = ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy));
-            if (isYLinear) {
-                centerY.push(normalizedLifeExpectancy*2-1);
-            } else {
-                var scaledLifeExpectancy = Math.log10(lifeExpectancy)/yLogGridSize;
-                centerY.push(scaledLifeExpectancy*2-1);
-            }
+            centerY.push(lifeExpectancyToScale(lifeExpectancy, isYLinear));
 
             var region = countryList[i]["region"];
             if (region == "Asia") {
