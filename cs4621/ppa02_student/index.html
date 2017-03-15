@@ -510,19 +510,21 @@
             var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
             sizes.push(normalizedPopulationval);
 
-            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP));
-            if (isXLinear) {
-                centerX.push(normalizedGDPPerCapita*2-0.99);
-            } else {
-                var scaledGDPPerCapita = (Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize;
-                centerX.push(scaledGDPPerCapita*2-1);
-            }
+//            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP));
+//            if (isXLinear) {
+//                centerX.push(normalizedGDPPerCapita*2-1);
+//            } else {
+//                var scaledGDPPerCapita = (Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize;
+//                centerX.push(scaledGDPPerCapita*2-1);
+//            }
+            centerX.push(gdpPerCapitaToScale(gdpPerCapita, isXLinear));
+
 
             var normalizedLifeExpectancy = ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy));
             if (isYLinear) {
-                centerY.push(normalizedLifeExpectancy*2-0.99);
+                centerY.push(normalizedLifeExpectancy*2-1);
             } else {
-                var scaledLifeExpectancy = (Math.log10(lifeExpectancy))/yLogGridSize;
+                var scaledLifeExpectancy = Math.log10(lifeExpectancy)/yLogGridSize;
                 centerY.push(scaledLifeExpectancy*2-1);
             }
 
@@ -536,6 +538,38 @@
             } else {
                 regions.push(4);
             }
+        }
+    }
+
+    function gdpPerCapitaToScale(gdpPerCapita, isLinear){
+        if (isLinear) {
+            return ((gdpPerCapita-minGDP)/(maxGDP-minGDP))*2-1;
+        } else {
+            return ((Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize)*2-1;
+        }
+    }
+
+    function fromScaleToGdpPerCapita(xVal, isLinear) {
+        if (isLinear) {
+            return xVal*(maxGDP-minGDP) + minGDP;
+        } else {
+            return Math.pow(10, xVal*xLogGridSize + Math.floor(Math.log10(minGDP)));
+        }
+    }
+
+    function lifeExpectancyToScale(lifeExpectancy, isLinear){
+        if (isLinear) {
+            return ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy))*2-1;
+        } else {
+            return (Math.log10(lifeExpectancy)/yLogGridSize)*2-1;
+        }
+    }
+
+    function fromScaleToLifeExpectancy(yVal, isLinear) {
+        if (isLinear) {
+            return yVal*(maxLifeExpectancy-minLifeExpectancy) + minLifeExpectancy;
+        } else {
+            return Math.pow(10, yVal*yLogGridSize);
         }
     }
 
@@ -596,6 +630,7 @@
     }
 
     function updateWebGL() {
+
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         updateGridData();
@@ -687,6 +722,19 @@
     }
 
     window.requestAnimationFrame(updateWebGL);
+
+    $("#webglCanvas").mousemove(function(event){
+        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
+        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
+        var clientRect = $("#webglCanvas")[0].getBoundingClientRect();
+        var xPos = event.clientX - clientRect.left;
+        var normalizedXPos = xPos/(clientRect.right - clientRect.left);
+        $("#gdpPerCapita").text(fromScaleToGdpPerCapita(normalizedXPos, isXLinear).toFixed(2));
+
+        var yPos = clientRect.bottom - event.clientY;
+        var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
+        $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+    });
 
 </script>
 </body>
