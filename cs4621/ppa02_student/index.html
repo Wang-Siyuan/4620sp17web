@@ -438,11 +438,17 @@
     var gridVertexData = [];
     var highlightVertexData = [];
     var highlightIndexData = [];
-    var sizes = [];
-    var centerX = [];
-    var centerY = [];
-    var regions = [];
-    var circleData = [];
+
+    var currentYearSizes = [];
+    var currentYearCenterX = [];
+    var currentYearCenterY = [];
+    var currentYearRegions = [];
+    var allCircleData = [];
+
+    var highlightSizes = [];
+    var highlightCenterX = [];
+    var highlightCenterY = [];
+    var highlightRegions = [];
 
     var gdpPerCapitas = getGdpPerCapita();
     var lifeExpectancies = getLifeExpectancy();
@@ -468,24 +474,18 @@
     var maxPopulation = Math.max.apply(Math, flattenValue(populations));
 
     var prevYearSliderValue = -1.0;
+
     function updateCircleData() {
-        if (prevYearSliderValue == yearSlider.slider("value")) {
-            return;
-        }
-        sizes = [];
-        centerX = [];
-        centerY = [];
-        regions = [];
+        currentYearSizes = [];
+        currentYearCenterX = [];
+        currentYearCenterY = [];
+        currentYearRegions = [];
 
-        highlightSizes = [];
-        highlightCenterX = [];
-        highlightCenterY = [];
-        highlightRegions = [];
-
-        circleData = [];
+        allCircleData = [];
 
         circleVertexData = [];
         circleIndexData = [];
+
         for (var i = 0; i < shapeCount; i++) {
             circleVertexData.push(0.0);
             circleVertexData.push(0.0);
@@ -523,12 +523,12 @@
                 continue;
             }
             var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
-            sizes.push(normalizedPopulationval);
+            currentYearSizes.push(normalizedPopulationval);
 
             var normalizedGdpPerCapita = gdpPerCapitaToScale(gdpPerCapita, isXLinear);
-            centerX.push(normalizedGdpPerCapita);
+            currentYearCenterX.push(normalizedGdpPerCapita);
             var normalizedLifeExpectancy = lifeExpectancyToScale(lifeExpectancy, isYLinear);
-            centerY.push(normalizedLifeExpectancy);
+            currentYearCenterY.push(normalizedLifeExpectancy);
 
             var region = countryList[i]["region"];
             var regionCode = 4;
@@ -539,8 +539,8 @@
             } else if (region == "Africa") {
                 regionCode = 3;
             }
-            regions.push(regionCode);
-            circleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
+            currentYearRegions.push(regionCode);
+            allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
         }
         prevYearSliderValue = yearSlider.slider("value");
     }
@@ -549,6 +549,7 @@
 
         highlightVertexData = [];
         highlightIndexData = [];
+
         highlightVertexData.push(0.0);
         highlightVertexData.push(0.0);
         highlightVertexData.push(0.0);
@@ -672,12 +673,6 @@
         var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
         gl.uniform1i(isGridLocation, 1);
 
-        var isXLinear = gl.getUniformLocation(program, "isXLinear");
-        gl.uniform1i(isXLinear, 0);
-
-        var isYLinear = gl.getUniformLocation(program, "isYLinear");
-        gl.uniform1i(isYLinear, 1);
-
         var gridVertexArray = new Float32Array(gridVertexData);
         var gridVertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
@@ -692,9 +687,26 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(vertPositionLocation);
 
-
         updateCircleData();
 
+        if (highlightSizes.length > 0) {
+            var transparencyFromSlider = transparencySlider.slider("value")/200.0;
+            drawCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
+
+            updateHighlightCircleData();
+            drawCircles(gl, highlightSizes, highlightCenterX, highlightCenterY, highlightRegions, 1.0, highlightVertexData, highlightIndexData);
+        } else {
+            var transparencyFromSlider = Math.min(1.0, 2*transparencySlider.slider("value")/100.0);
+            drawCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
+
+        }
+
+        gl.useProgram(null);
+
+        window.requestAnimationFrame(updateWebGL);
+    }
+
+    function drawCircles(gl, sizes, centerX, centerY, regions, alpha, currentVertexData, currentIndexData) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
         gl.disable(gl.DEPTH_TEST);
@@ -717,28 +729,22 @@
         var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
         gl.uniform1i(isGridLocation, 0);
 
-        var isXLinear = gl.getUniformLocation(program, "isXLinear");
-        gl.uniform1i(isXLinear, 0);
-
-        var isYLinear = gl.getUniformLocation(program, "isYLinear");
-        gl.uniform1i(isYLinear, 0);
-
         var alphaLocation = gl.getUniformLocation(program, "alpha");
-        gl.uniform1f(alphaLocation, transparencySlider.slider("value")/100.0);
+        gl.uniform1f(alphaLocation, alpha);
 
-        var circleVertexArray = new Float32Array(circleVertexData);
-        var circleVertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, circleVertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, circleVertexArray, gl.STATIC_DRAW);
+        var currentVertexArray = new Float32Array(currentVertexData);
+        var currentVertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, currentVertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, currentVertexArray, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        var circleIndexArray = new Uint16Array(circleIndexData);
-        var circleIndexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circleIndexArray, gl.STATIC_DRAW);
+        var currentIndexArray = new Uint16Array(currentIndexData);
+        var currentIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, currentIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, currentIndexArray, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, circleVertexBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, currentVertexBuffer);
         var positionLocation = gl.getAttribLocation(program, "position");
         gl.enableVertexAttribArray(positionLocation);
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 4 * 3, 0);
@@ -747,19 +753,22 @@
         gl.vertexAttribPointer(shapeIndexLocation, 1, gl.FLOAT, false, 4 * 3, 4 * 2);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
-        gl.drawElements(gl.TRIANGLES, shapeCount * cornerCount * 3, gl.UNSIGNED_SHORT, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, currentIndexBuffer);
+        gl.drawElements(gl.TRIANGLES, sizes.length * cornerCount * 3, gl.UNSIGNED_SHORT, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
         gl.disableVertexAttribArray(positionLocation);
         gl.disableVertexAttribArray(shapeIndexLocation);
-        gl.useProgram(null);
-
-        window.requestAnimationFrame(updateWebGL);
     }
 
     window.requestAnimationFrame(updateWebGL);
 
     function updateCursorData(event) {
+        highlightSizes = [];
+        highlightCenterX = [];
+        highlightCenterY = [];
+        highlightRegions = [];
+
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         var clientRect = $("#webglCanvas")[0].getBoundingClientRect();
@@ -770,6 +779,25 @@
         var yPos = clientRect.bottom - event.clientY;
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
         $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+
+        for (var i = allCircleData.length-1; i >= 0; i--) {
+//            allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
+            var entry = allCircleData[i];
+            var normalizedPopulationval = entry[entry.length-4];
+            var normalizedGdpPerCapita = entry[entry.length-3];
+            var normalizedLifeExpectancy = entry[entry.length-2];
+            var regionCode = entry[entry.length-1];
+
+            var glNormalizedXPos = normalizedXPos*2-1;
+            var glNormalizedYPos = normalizedYPos*2-1;
+            if (Math.sqrt(Math.pow(glNormalizedXPos-normalizedGdpPerCapita, 2) + Math.pow(glNormalizedYPos-normalizedLifeExpectancy,2)) <= normalizedPopulationval) {
+                highlightSizes.push(normalizedPopulationval);
+                highlightCenterX.push(normalizedGdpPerCapita);
+                highlightCenterY.push(normalizedLifeExpectancy);
+                highlightRegions.push(regionCode);
+                break;
+            }
+        }
     }
 
     $("#webglCanvas").mousemove(function(event){
