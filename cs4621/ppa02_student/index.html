@@ -325,9 +325,9 @@
     attribute vec2 position;
     attribute float shapeIndex;
     attribute vec3 vert_position;
+
     varying float region;
 
-    varying vec3 curr_position;
 
     void main() {
         if (isGrid == 1) {
@@ -339,7 +339,6 @@
             gl_Position = vec4(p, 0.0, 1.0);
             region = regions[int(shapeIndex)];
         }
-        curr_position = vert_position;
     }
 </script>
 
@@ -347,13 +346,12 @@
     #define SHAPE_COUNT 195
     precision highp float;
 
-    varying vec3 curr_position;
     varying float region;
     uniform int isGridForFragmentShader;
 
     void main() {
         if (isGridForFragmentShader == 1) {
-            gl_FragColor = vec4(1.0,1.0,1.0, 1.0);
+            gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
         } else {
             if (int(region) == 1) {
                 gl_FragColor = vec4(1.0,0.0,0.0, 1.0);
@@ -428,6 +426,11 @@
     var gl = initializeWebGL("webglCanvas");
     var program = createGlslProgram(gl, "vertexShader", "fragmentShader");
 
+    var xLinearGridSize = 6;
+    var yLinearGridSize = 5;
+    var xLogGridSize = 3;
+    var yLogGridSize = 2;
+    var totalLineCount = 0;
     var cornerCount = 32;
     var vertexData = [];
     var indexData = [];
@@ -449,7 +452,8 @@
     function flattenValue(someMap) {
         var keys = Object.keys(someMap);
         var arrayOfValueArray = keys.map(function(t) { return someMap[t];});
-        return [].concat.apply([], arrayOfValueArray);
+        var falttenedArr = [].concat.apply([], arrayOfValueArray);
+        return falttenedArr.filter(function(someVal){ return someVal != null });
     }
     var minGDP = Math.min.apply(Math, flattenValue(gdpPerCapitas));
     var maxGDP = Math.max.apply(Math, flattenValue(gdpPerCapitas));
@@ -492,20 +496,35 @@
         }
 
         var currentYearIndex = yearSlider.slider("value") - 1800;
+        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
+        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         for (var i=0; i<shapeCount; i++) {
 
             var countryName = countryList[i]["name"];
             var populationVal = populations[countryName][currentYearIndex];
+            var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex];
+            var lifeExpectancy = lifeExpectancies[countryName][currentYearIndex];
+            if (populationVal == null || populationVal == 0 || gdpPerCapita == null || gdpPerCapita == 0 || lifeExpectancy == null || lifeExpectancy == 0) {
+                continue;
+            }
             var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
             sizes.push(normalizedPopulationval);
 
-            var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex];
-            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP))*2-1;
-            centerX.push(normalizedGDPPerCapita);
+            var normalizedGDPPerCapita = ((gdpPerCapita-minGDP)/(maxGDP-minGDP));
+            if (isXLinear) {
+                centerX.push(normalizedGDPPerCapita*2-0.99);
+            } else {
+                var scaledGDPPerCapita = (Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize;
+                centerX.push(scaledGDPPerCapita*2-1);
+            }
 
-            var lifeExpectancy = lifeExpectancies[countryName][currentYearIndex];
-            var normalizedLifeExpectancy = ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy))*2-1;
-            centerY.push(normalizedLifeExpectancy);
+            var normalizedLifeExpectancy = ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy));
+            if (isYLinear) {
+                centerY.push(normalizedLifeExpectancy*2-0.99);
+            } else {
+                var scaledLifeExpectancy = (Math.log10(lifeExpectancy))/yLogGridSize;
+                centerY.push(scaledLifeExpectancy*2-1);
+            }
 
             var region = countryList[i]["region"];
             if (region == "Asia") {
@@ -521,19 +540,59 @@
     }
 
     function updateGridData() {
+        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
+        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
+        vertexData = [];
+        totalLineCount = 0;
+        if (isXLinear) {
+            for (var i = 1; i < xLinearGridSize; i++) {
+                vertexData.push(-1 + i * (2 / xLinearGridSize));
+                vertexData.push(-1);
+                vertexData.push(0);
+                vertexData.push(-1 + i * (2 / xLinearGridSize));
+                vertexData.push(1);
+                vertexData.push(0);
+                totalLineCount += 1;
+            }
+        } else {
+            for (var i = 0; i < xLogGridSize; i++) {
+                var factor = Math.pow(10, i);
+                for (var j = 1; j < 10; j++) {
+                    vertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    vertexData.push(-1);
+                    vertexData.push(0);
+                    vertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    vertexData.push(1);
+                    vertexData.push(0);
+                    totalLineCount += 1;
+                }
+            }
+        }
 
-        vertexData = [
-            -1.0, -1.0, 0.0,  // Lower left
-            0.0,  0.0,
-            1.0, -1.0, 0.0,  // Lower right
-            1.0,  0.0,
-            1.0,  1.0, 0.0,  // Top right
-            1.0,  1.0,
-            -1.0,  1.0, 0.0,  // Top left
-            0.0,  1.0
-        ];
-
-        indexData = [0, 1, 2, 0, 2, 3];
+        if (isYLinear) {
+            for (var i = 1; i < yLinearGridSize; i++) {
+                vertexData.push(-1);
+                vertexData.push(-1 + i * (2 / yLinearGridSize));
+                vertexData.push(0);
+                vertexData.push(1);
+                vertexData.push(-1 + i * (2 / yLinearGridSize));
+                vertexData.push(0);
+                totalLineCount += 1;
+            }
+        } else {
+            for (var i = 0; i < yLogGridSize; i++) {
+                var factor = Math.pow(10, i);
+                for (var j = 1; j < 10; j++) {
+                    vertexData.push(-1);
+                    vertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    vertexData.push(0);
+                    vertexData.push(1);
+                    vertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    vertexData.push(0);
+                    totalLineCount += 1;
+                }
+            }
+        }
     }
 
     function updateWebGL() {
@@ -549,35 +608,28 @@
         var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
         gl.uniform1i(isGridLocation, 1);
 
+        var isXLinear = gl.getUniformLocation(program, "isXLinear");
+        gl.uniform1i(isXLinear, 0);
+
+        var isYLinear = gl.getUniformLocation(program, "isYLinear");
+        gl.uniform1i(isYLinear, 1);
+
         var gridVertexArray = new Float32Array(vertexData);
         var gridVertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, gridVertexArray, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-        var gridIndexArray = new Uint16Array(indexData);
-        var gridIndexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridIndexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gridIndexArray, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
         var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
         gl.enableVertexAttribArray(vertPositionLocation);
-        gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 4 * 5, 0);
+        gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINES, 0, 2*totalLineCount);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.disableVertexAttribArray(vertPositionLocation);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridIndexBuffer);
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-        gl.useProgram(null);
 
         updateCircleData();
-        console.log(vertexData.length);
-        console.log(indexData.length);
-
-        gl.useProgram(program);
 
         // Set the uniforms
         for (var i = 0; i < sizes.length; i++) {
@@ -625,10 +677,10 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleIndexBuffer);
-        gl.disableVertexAttribArray(vertPositionLocation);
         gl.drawElements(gl.TRIANGLES, shapeCount * cornerCount * 3, gl.UNSIGNED_SHORT, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
+        gl.disableVertexAttribArray(positionLocation);
+        gl.disableVertexAttribArray(shapeIndexLocation);
         gl.useProgram(null);
 
         window.requestAnimationFrame(updateWebGL);
