@@ -348,19 +348,20 @@
 
     varying float region;
     uniform int isGridForFragmentShader;
+    uniform float alpha;
 
     void main() {
         if (isGridForFragmentShader == 1) {
             gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
         } else {
             if (int(region) == 1) {
-                gl_FragColor = vec4(1.0,0.0,0.0, 1.0);
+                gl_FragColor = vec4(1.0,0.0,0.0, alpha);
             } else if (int(region) == 2) {
-                gl_FragColor = vec4(0.0,1.0,0.0, 1.0);
+                gl_FragColor = vec4(0.0,1.0,0.0, alpha);
             } else if (int(region) == 3) {
-                gl_FragColor = vec4(0.0,0.0,1.0, 1.0);
+                gl_FragColor = vec4(0.0,0.0,1.0, alpha);
             } else {
-                gl_FragColor = vec4(1.0,1.0,0.0, 1.0);
+                gl_FragColor = vec4(1.0,1.0,0.0, alpha);
             }
         }
     }
@@ -440,6 +441,7 @@
     var centerY = [];
     var regions = [];
     var colors = [];
+    var circleData = [];
 
     var gdpPerCapitas = getGdpPerCapita();
     var lifeExpectancies = getLifeExpectancy();
@@ -448,6 +450,8 @@
     var shapeCount = countryList.length;
     var populationScaleSlider = $("#populationScaleSlider");
     var transparencySlider = $("#transparencySlider");
+    populationScaleSlider.slider("value", 40);
+    transparencySlider.slider("value", 70);
 
     function flattenValue(someMap) {
         var keys = Object.keys(someMap);
@@ -468,6 +472,7 @@
         centerY = [];
         regions = [];
         colors = [];
+        circleData = [];
 
         vertexData = [];
         indexData = [];
@@ -509,9 +514,12 @@
             }
             var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
             sizes.push(normalizedPopulationval);
-            
-            centerX.push(gdpPerCapitaToScale(gdpPerCapita, isXLinear));
-            centerY.push(lifeExpectancyToScale(lifeExpectancy, isYLinear));
+
+            var normalizedGdpPerCapita = gdpPerCapitaToScale(gdpPerCapita, isXLinear);
+            centerX.push(normalizedGdpPerCapita);
+            var normalizedLifeExpectancy = lifeExpectancyToScale(lifeExpectancy, isYLinear);
+            centerY.push(normalizedLifeExpectancy);
+            circleData.push([populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy]);
 
             var region = countryList[i]["region"];
             if (region == "Asia") {
@@ -524,6 +532,10 @@
                 regions.push(4);
             }
         }
+    }
+
+    function updateHighlightCircleData() {
+        
     }
 
     function gdpPerCapitaToScale(gdpPerCapita, isLinear){
@@ -651,6 +663,10 @@
 
         updateCircleData();
 
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+
         // Set the uniforms
         for (var i = 0; i < sizes.length; i++) {
             var centerUniformName = "centers[" + i + "]";
@@ -674,6 +690,9 @@
 
         var isYLinear = gl.getUniformLocation(program, "isYLinear");
         gl.uniform1i(isYLinear, 0);
+
+        var alphaLocation = gl.getUniformLocation(program, "alpha");
+        gl.uniform1f(alphaLocation, transparencySlider.slider("value")/100.0);
 
         var circleVertexArray = new Float32Array(vertexData);
         var circleVertexBuffer = gl.createBuffer();
@@ -719,6 +738,8 @@
         var yPos = clientRect.bottom - event.clientY;
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
         $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+
+
     });
 
 </script>
