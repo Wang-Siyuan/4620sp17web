@@ -320,18 +320,25 @@
     uniform vec2 centers[SHAPE_COUNT];
     uniform float sizes[SHAPE_COUNT];
     uniform float regions[SHAPE_COUNT];
-    uniform int isGrid;
+    uniform int useVertexPos;
+    uniform int useHaloColor;
 
     attribute vec2 position;
     attribute float shapeIndex;
     attribute vec3 vert_position;
 
     varying float region;
+    varying vec3 colorToUse;
 
 
     void main() {
-        if (isGrid == 1) {
+        if (useVertexPos == 1) {
             gl_Position = vec4(vert_position, 1.0);
+            if (useHaloColor == 1) {
+                colorToUse = vec3(0.0,0.0,0.0);
+            } else {
+                colorToUse = vec3(0.0,0.0,0.0);
+            }
         } else {
             vec2 center = centers[int(shapeIndex)];
             float size = sizes[int(shapeIndex)];
@@ -347,12 +354,14 @@
     precision highp float;
 
     varying float region;
-    uniform int isGridForFragmentShader;
     uniform float alpha;
 
+    uniform int useSolid;
+    varying vec3 colorToUse;
+
     void main() {
-        if (isGridForFragmentShader == 1) {
-            gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+        if (useSolid == 1) {
+            gl_FragColor = vec4(colorToUse, 1.0);
         } else {
             if (int(region) == 1) {
                 gl_FragColor = vec4(1.0,0.0,0.0, alpha);
@@ -436,6 +445,8 @@
     var circleVertexData = [];
     var circleIndexData = [];
     var gridVertexData = [];
+    var haloVertexData = [];
+    var totalHaloVerticesCount = 0;
     var highlightVertexData = [];
     var highlightIndexData = [];
 
@@ -659,6 +670,20 @@
         }
     }
 
+    function updateHaloData(centerX, centerY, size, additionalRadius) {
+        haloVertexData = [];
+        totalHaloVerticesCount = 0;
+        for (var i = 0; i < cornerCount; i++) {
+            var theta = 2*Math.PI*i/cornerCount;
+            var x = (size + additionalRadius)*Math.cos(theta);
+            var y = (size + additionalRadius)*Math.sin(theta);
+            haloVertexData.push(centerX + x);
+            haloVertexData.push(centerY + y);
+            haloVertexData.push(0);
+            totalHaloVerticesCount += 1;
+        }
+    }
+
     function updateWebGL() {
 
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -667,11 +692,14 @@
 
         gl.useProgram(program);
 
-        var isGridLocation = gl.getUniformLocation(program, "isGrid");
+        var isGridLocation = gl.getUniformLocation(program, "useVertexPos");
         gl.uniform1i(isGridLocation, 1);
 
-        var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
-        gl.uniform1i(isGridLocation, 1);
+        var useSolidLocation = gl.getUniformLocation(program, "useSolid");
+        gl.uniform1i(useSolidLocation, 1);
+
+        var useHaloColorLocation = gl.getUniformLocation(program, "useHaloColor");
+        gl.uniform1i(useHaloColorLocation, 0);
 
         var gridVertexArray = new Float32Array(gridVertexData);
         var gridVertexBuffer = gl.createBuffer();
@@ -691,14 +719,23 @@
 
         if (highlightSizes.length > 0) {
             var transparencyFromSlider = transparencySlider.slider("value")/200.0;
-            drawCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
+            drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
 
             updateHighlightCircleData();
-            drawCircles(gl, highlightSizes, highlightCenterX, highlightCenterY, highlightRegions, 1.0, highlightVertexData, highlightIndexData);
+            drawFilledCircles(gl, highlightSizes, highlightCenterX, highlightCenterY, highlightRegions, 1.0, highlightVertexData, highlightIndexData);
+
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.02);
+            drawCircle(gl, haloVertexData);
+
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.04);
+            drawCircle(gl, haloVertexData);
+
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.06);
+            drawCircle(gl, haloVertexData);
+
         } else {
             var transparencyFromSlider = Math.min(1.0, 2*transparencySlider.slider("value")/100.0);
-            drawCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
-
+            drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
         }
 
         gl.useProgram(null);
@@ -706,7 +743,7 @@
         window.requestAnimationFrame(updateWebGL);
     }
 
-    function drawCircles(gl, sizes, centerX, centerY, regions, alpha, currentVertexData, currentIndexData) {
+    function drawFilledCircles(gl, sizes, centerX, centerY, regions, alpha, currentVertexData, currentIndexData) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
         gl.disable(gl.DEPTH_TEST);
@@ -723,11 +760,11 @@
         var regionLocation = gl.getUniformLocation(program, "regions[0]");
         gl.uniform1fv(regionLocation, regions);
 
-        var isGridLocation = gl.getUniformLocation(program, "isGrid");
+        var isGridLocation = gl.getUniformLocation(program, "useVertexPos");
         gl.uniform1i(isGridLocation, 0);
 
-        var isGridLocation = gl.getUniformLocation(program, "isGridForFragmentShader");
-        gl.uniform1i(isGridLocation, 0);
+        var useSolidLocation = gl.getUniformLocation(program, "useSolid");
+        gl.uniform1i(useSolidLocation, 0);
 
         var alphaLocation = gl.getUniformLocation(program, "alpha");
         gl.uniform1f(alphaLocation, alpha);
@@ -759,6 +796,32 @@
 
         gl.disableVertexAttribArray(positionLocation);
         gl.disableVertexAttribArray(shapeIndexLocation);
+    }
+
+    function drawCircle(gl, vertexData) {
+
+        var isGridForFragmentShaderLocation = gl.getUniformLocation(program, "useVertexPos");
+        gl.uniform1i(isGridForFragmentShaderLocation, 1);
+
+        var useSolidLocation = gl.getUniformLocation(program, "useSolid");
+        gl.uniform1i(useSolidLocation, 1);
+
+        var useHaloColorLocation = gl.getUniformLocation(program, "useHaloColor");
+        gl.uniform1i(useHaloColorLocation, 1);
+
+        var vertexArray = new Float32Array(vertexData);
+        var vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
+        gl.enableVertexAttribArray(vertPositionLocation);
+        gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINE_LOOP, 0, totalHaloVerticesCount);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.disableVertexAttribArray(vertPositionLocation);
     }
 
     window.requestAnimationFrame(updateWebGL);
