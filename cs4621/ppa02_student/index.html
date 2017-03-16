@@ -137,7 +137,7 @@
         <!--<button id="selectAllButton" style="margin-top: 5%" class="btn btn-primary">Select All</button>-->
         <button id="deselectAllButton" style="margin-top: 5%" class="btn btn-danger">Deselect All</button>
     </div>
-    <i id="cursor-tooltip" data-toggle="tooltip" data-placement="right" title="Tooltip for image" data-animation="false" data-trigger="manual" style="position: absolute"/>
+    <i id="cursor-tooltip" data-html="true" data-toggle="tooltip" data-placement="right" title="Tooltip for image" data-animation="false" data-trigger="manual" style="position: absolute"/>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
@@ -1006,13 +1006,16 @@
         var clientRect = $("#webglCanvas")[0].getBoundingClientRect();
         var xPos = event.clientX - clientRect.left;
         var normalizedXPos = xPos/(clientRect.right - clientRect.left);
-        $("#gdpPerCapita").text(fromScaleToGdpPerCapita(normalizedXPos, isXLinear).toFixed(2));
+        var gdpPerCapitaForDisplay = fromScaleToGdpPerCapita(normalizedXPos, isXLinear).toFixed(2);
+        $("#gdpPerCapita").text(gdpPerCapitaForDisplay);
 
         var yPos = clientRect.bottom - event.clientY;
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
-        $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+        var lifeExpectancyForDisplay = fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2);
+        $("#lifeExpectancy").text(lifeExpectancyForDisplay);
         $("#cursor-tooltip").css({top: window.pageYOffset + event.pageY, left: window.pageXOffset + event.pageX });
-        $("#cursor-tooltip").tooltip('show');
+        $("#cursor-tooltip").attr("title", "<h6>GDP per Capita: " + gdpPerCapitaForDisplay + "</h6>" +
+                "<h6>Life Expectancy: " + lifeExpectancyForDisplay + "</h6>");
 
         for (var i = allCircleData.length-1; i >= 0; i--) {
             var entry = allCircleData[i];
@@ -1033,9 +1036,17 @@
                 $("#population").text(parseInt(entry[2].toFixed(0)).toLocaleString());
                 $("#gdpPerCapitaDataPoint").text(entry[3].toFixed(2));
                 $("#lifeExpectancyDataPoint").text(entry[4].toFixed(2));
+                $("#cursor-tooltip").attr("title", "<h6>Country: " + entry[0] + "</h6>" +
+                        "<h6>Year: " + entry[1] + "</h6>" +
+                        "<h6>Population: " + parseInt(entry[2].toFixed(0)).toLocaleString() + "</h6>" +
+                        "<h6>GDP per Capital: " + entry[3].toFixed(2) + "</h6>" +
+                        "<h6>Life Expectancy: " + entry[4].toFixed(2) + "</h6>");
                 break;
             }
         }
+        $("#cursor-tooltip").tooltip("fixTitle");
+        $("#cursor-tooltip").tooltip('show');
+
     }
 
     function updateCountrySelection(event) {
