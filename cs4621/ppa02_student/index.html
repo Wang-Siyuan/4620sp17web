@@ -214,7 +214,6 @@
         year = yearSlider.slider("value");
         $("#currentYear").html("<h1>" + year + "</h1>");
 
-//        updateCircleData();
         window.requestAnimationFrame(updateUi);
     }
     window.requestAnimationFrame(updateUi);
@@ -223,16 +222,6 @@
     var countries = getCountryList();
 
     var selectedCountries = [];
-
-    function updatecountryList() {
-        $("#countryList").html(
-                "<ul>" +
-                selectedCountries.map(function(name) {
-                    return "<li>" + name + "</li>";
-                }).join("") +
-                "</ul>"
-        );
-    }
 
     function createCountryCheckBoxes() {
         var countryHtmls = [];
@@ -257,7 +246,6 @@
                 } else {
                     selectedCountries.push(name);
                 }
-//                updatecountryList();
             });
         }
 
@@ -312,12 +300,10 @@
 
     $("#selectAllButton").click(function() {
         countries.forEach(addCountry);
-//        updatecountryList();
     });
 
     $("#deselectAllButton").click(function() {
         countries.forEach(removeCountry);
-//        updatecountryList();
     });
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
@@ -345,7 +331,7 @@
         if (useVertexPos == 1) {
             gl_Position = vec4(vert_position, 1.0);
             if (useHaloColor == 1) {
-                colorToUse = vec3(0.5,0.3,0.0);
+                colorToUse = vec3(1.0,0.078,0.576);
             } else {
                 colorToUse = vec3(0.0,0.0,0.0);
             }
@@ -796,26 +782,6 @@
         }
     }
 
-    function updateBoarderData(centerXs, centerYs, sizes) {
-        borderVertexData = [];
-        for (var index = 0; index < centerXs.length; index++){
-            var currentCenterX = centerXs[index];
-            var currentCenterY = centerYs[index];
-            var currentSize = sizes[index];
-            var currentBorderData = [];
-            for (var i = 0; i < cornerCount; i++) {
-                var theta = 2 * Math.PI * i / cornerCount;
-                var x = (currentSize) * Math.cos(theta);
-                var y = (currentSize) * Math.sin(theta);
-                currentBorderData.push(currentCenterX + x);
-                currentBorderData.push(currentCenterY + y);
-                currentBorderData.push(0);
-            }
-            borderVertexData.push(currentBorderData);
-        }
-        return borderVertexData;
-    }
-
     function updateWebGL() {
 
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -892,13 +858,13 @@
             updateHighlightCircleData();
             drawFilledCircles(gl, highlightSizes, highlightCenterX, highlightCenterY, highlightRegions, 1.0, highlightVertexData, highlightIndexData);
 
-            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.02);
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.05);
             drawCircle(gl, haloVertexData);
 
-            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.04);
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.08);
             drawCircle(gl, haloVertexData);
 
-            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.06);
+            updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.11);
             drawCircle(gl, haloVertexData);
         }
 
@@ -992,12 +958,6 @@
         gl.drawArrays(gl.LINE_LOOP, 0, cornerCount);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(vertPositionLocation);
-    }
-
-    function drawCircles(gl, combinedVertexData) {
-        for (var i = 0; i < combinedVertexData.length; i++) {
-            drawCircle(gl, combinedVertexData[i]);
-        }
     }
 
     function drawLine(gl, vertexData, totalVerticesCount, regionCode) {
