@@ -322,6 +322,7 @@
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
     #define SHAPE_COUNT 195
+    precision highp float;
 
     uniform vec2 centers[SHAPE_COUNT];
     uniform float sizes[SHAPE_COUNT];
@@ -337,6 +338,7 @@
 
     varying float region;
     varying vec3 colorToUse;
+    varying vec2 currPos;
 
 
     void main() {
@@ -356,6 +358,7 @@
             vec2 p = size*position + center;
             gl_Position = vec4(p, 0.0, 1.0);
             region = regions[int(shapeIndex)];
+            currPos = position;
         }
     }
 </script>
@@ -369,19 +372,24 @@
 
     uniform int useSolid;
     varying vec3 colorToUse;
+    varying vec2 currPos;
 
     void main() {
         if (useSolid == 1) {
             gl_FragColor = vec4(colorToUse, 1.0);
         } else {
-            if (int(region) == 1) {
-                gl_FragColor = vec4(1.0,0.0,0.0, alpha);
-            } else if (int(region) == 2) {
-                gl_FragColor = vec4(0.0,1.0,0.0, alpha);
-            } else if (int(region) == 3) {
-                gl_FragColor = vec4(0.0,0.0,1.0, alpha);
+            if (length(currPos) > 0.950) {
+                gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
             } else {
-                gl_FragColor = vec4(1.0,1.0,0.0, alpha);
+                if (int(region) == 1) {
+                    gl_FragColor = vec4(1.0,0.0,0.0, alpha);
+                } else if (int(region) == 2) {
+                    gl_FragColor = vec4(0.0,1.0,0.0, alpha);
+                } else if (int(region) == 3) {
+                    gl_FragColor = vec4(0.0,0.0,1.0, alpha);
+                } else {
+                    gl_FragColor = vec4(1.0,1.0,0.0, alpha);
+                }
             }
         }
     }
@@ -788,6 +796,26 @@
         }
     }
 
+    function updateBoarderData(centerXs, centerYs, sizes) {
+        borderVertexData = [];
+        for (var index = 0; index < centerXs.length; index++){
+            var currentCenterX = centerXs[index];
+            var currentCenterY = centerYs[index];
+            var currentSize = sizes[index];
+            var currentBorderData = [];
+            for (var i = 0; i < cornerCount; i++) {
+                var theta = 2 * Math.PI * i / cornerCount;
+                var x = (currentSize) * Math.cos(theta);
+                var y = (currentSize) * Math.sin(theta);
+                currentBorderData.push(currentCenterX + x);
+                currentBorderData.push(currentCenterY + y);
+                currentBorderData.push(0);
+            }
+            borderVertexData.push(currentBorderData);
+        }
+        return borderVertexData;
+    }
+
     function updateWebGL() {
 
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -834,6 +862,8 @@
             currentYearAlpha = transparencySlider.slider("value")/100.0;
         }
         drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, currentYearAlpha, circleVertexData, circleIndexData);
+//        var currentYearBorderData = updateBoarderData(currentYearCenterX, currentYearCenterY, currentYearSizes);
+//        drawCircles(gl, currentYearBorderData);
 
         if (isCountrySelected) {
             var selectedCountryAlpha = 1.0;
@@ -852,6 +882,8 @@
                 currIndexStart += sliceSize*96;
             }
             drawFilledCircles(gl, selectedCountrySizes.slice(currStart,selectedCountrySizes.length), selectedCountryCenterX.slice(currStart,selectedCountryCenterX.length), selectedCountryCenterY.slice(currStart,selectedCountryCenterY.length), selectedCountryRegions.slice(currStart,selectedCountryRegions.length), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart,selectedCountryVertexData.length), selectedCountryIndexData.slice(currIndexStart,selectedCountryIndexData.length));
+//            var selectedBorderData = updateBoarderData(selectedCountryCenterX, selectedCountryCenterY, selectedCountrySizes);
+//            drawCircles(gl, selectedBorderData);
             for (var i = 0; i < trendLineVertexData.length; i++) {
                 drawLine(gl, trendLineVertexData[i], trendLineVerticesCounts[i], trendLineRegionCodes[i]);
             }
@@ -957,9 +989,15 @@
         var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
         gl.enableVertexAttribArray(vertPositionLocation);
         gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.LINE_LOOP, 0, totalHaloVerticesCount);
+        gl.drawArrays(gl.LINE_LOOP, 0, cornerCount);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(vertPositionLocation);
+    }
+
+    function drawCircles(gl, combinedVertexData) {
+        for (var i = 0; i < combinedVertexData.length; i++) {
+            drawCircle(gl, combinedVertexData[i]);
+        }
     }
 
     function drawLine(gl, vertexData, totalVerticesCount, regionCode) {
