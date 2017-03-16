@@ -501,6 +501,94 @@
     var minPopulation = Math.min.apply(Math, flattenValue(populations));
     var maxPopulation = Math.max.apply(Math, flattenValue(populations));
 
+    function gdpPerCapitaToScale(gdpPerCapita, isLinear){
+        if (isLinear) {
+            return ((gdpPerCapita-minGDP)/(maxGDP-minGDP))*2-1;
+        } else {
+            return ((Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize)*2-1;
+        }
+    }
+
+    function fromScaleToGdpPerCapita(xVal, isLinear) {
+        if (isLinear) {
+            return xVal*(maxGDP-minGDP) + minGDP;
+        } else {
+            return Math.pow(10, xVal*xLogGridSize + Math.floor(Math.log10(minGDP)));
+        }
+    }
+
+    function lifeExpectancyToScale(lifeExpectancy, isLinear){
+        if (isLinear) {
+            return ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy))*2-1;
+        } else {
+            return (Math.log10(lifeExpectancy)/yLogGridSize)*2-1;
+        }
+    }
+
+    function fromScaleToLifeExpectancy(yVal, isLinear) {
+        if (isLinear) {
+            return yVal*(maxLifeExpectancy-minLifeExpectancy) + minLifeExpectancy;
+        } else {
+            return Math.pow(10, yVal*yLogGridSize);
+        }
+    }
+
+    function updateGridData() {
+        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
+        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
+        gridVertexData = [];
+        totalLineCount = 0;
+        if (isXLinear) {
+            for (var i = 1; i < xLinearGridSize; i++) {
+                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
+                gridVertexData.push(-1);
+                gridVertexData.push(0);
+                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
+                gridVertexData.push(1);
+                gridVertexData.push(0);
+                totalLineCount += 1;
+            }
+        } else {
+            for (var i = 0; i < xLogGridSize; i++) {
+                var factor = Math.pow(10, i);
+                for (var j = 1; j < 10; j++) {
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    gridVertexData.push(-1);
+                    gridVertexData.push(0);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
+                    gridVertexData.push(1);
+                    gridVertexData.push(0);
+                    totalLineCount += 1;
+                }
+            }
+        }
+
+        if (isYLinear) {
+            for (var i = 1; i < yLinearGridSize; i++) {
+                gridVertexData.push(-1);
+                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
+                gridVertexData.push(0);
+                gridVertexData.push(1);
+                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
+                gridVertexData.push(0);
+                totalLineCount += 1;
+            }
+        } else {
+            for (var i = 0; i < yLogGridSize; i++) {
+                var factor = Math.pow(10, i);
+                for (var j = 1; j < 10; j++) {
+                    gridVertexData.push(-1);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    gridVertexData.push(0);
+                    gridVertexData.push(1);
+                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
+                    gridVertexData.push(0);
+                    totalLineCount += 1;
+                }
+            }
+        }
+    }
+
     function updateCircleData() {
         currentYearSizes = [];
         currentYearCenterX = [];
@@ -510,33 +598,10 @@
         circleVertexData = [];
         circleIndexData = [];
 
-        for (var i = 0; i < shapeCount; i++) {
-            circleVertexData.push(0.0);
-            circleVertexData.push(0.0);
-            circleVertexData.push(i*1.0);
-
-            for (var j = 0; j < cornerCount; j++) {
-                var theta = 2*Math.PI*j/cornerCount;
-                var x = Math.cos(theta);
-                var y = Math.sin(theta);
-                circleVertexData.push(x);
-                circleVertexData.push(y);
-                circleVertexData.push(i*1.0);
-            }
-        }
-
-        for (var i = 0; i < shapeCount; i++) {
-            var start = i*(cornerCount+1);
-            for(var j = 0; j < cornerCount; j ++) {
-                circleIndexData.push(start);
-                circleIndexData.push(start + j + 1);
-                circleIndexData.push(start + (j + 1) % cornerCount + 1);
-            }
-        }
-
         var currentYearIndex = yearSlider.slider("value") - 1800;
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
+        var counter = 0;
         for (var i=0; i<shapeCount; i++) {
 
             var countryName = countryList[i]["name"];
@@ -564,6 +629,27 @@
                 regionCode = 3;
             }
             currentYearRegions.push(regionCode);
+
+            circleVertexData.push(0.0);
+            circleVertexData.push(0.0);
+            circleVertexData.push(counter*1.0);
+
+            for (var j = 0; j < cornerCount; j++) {
+                var theta = 2*Math.PI*j/cornerCount;
+                var x = Math.cos(theta);
+                var y = Math.sin(theta);
+                circleVertexData.push(x);
+                circleVertexData.push(y);
+                circleVertexData.push(counter*1.0);
+            }
+
+            var start = counter*(cornerCount+1);
+            for(var j = 0; j < cornerCount; j ++) {
+                circleIndexData.push(start);
+                circleIndexData.push(start + j + 1);
+                circleIndexData.push(start + (j + 1) % cornerCount + 1);
+            }
+            counter++;
             allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
         }
     }
@@ -680,94 +766,6 @@
         }
     }
 
-    function gdpPerCapitaToScale(gdpPerCapita, isLinear){
-        if (isLinear) {
-            return ((gdpPerCapita-minGDP)/(maxGDP-minGDP))*2-1;
-        } else {
-            return ((Math.log10(gdpPerCapita) - Math.floor(Math.log10(minGDP)))/xLogGridSize)*2-1;
-        }
-    }
-
-    function fromScaleToGdpPerCapita(xVal, isLinear) {
-        if (isLinear) {
-            return xVal*(maxGDP-minGDP) + minGDP;
-        } else {
-            return Math.pow(10, xVal*xLogGridSize + Math.floor(Math.log10(minGDP)));
-        }
-    }
-
-    function lifeExpectancyToScale(lifeExpectancy, isLinear){
-        if (isLinear) {
-            return ((lifeExpectancy-minLifeExpectancy)/(maxLifeExpectancy-minLifeExpectancy))*2-1;
-        } else {
-            return (Math.log10(lifeExpectancy)/yLogGridSize)*2-1;
-        }
-    }
-
-    function fromScaleToLifeExpectancy(yVal, isLinear) {
-        if (isLinear) {
-            return yVal*(maxLifeExpectancy-minLifeExpectancy) + minLifeExpectancy;
-        } else {
-            return Math.pow(10, yVal*yLogGridSize);
-        }
-    }
-
-    function updateGridData() {
-        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
-        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
-        gridVertexData = [];
-        totalLineCount = 0;
-        if (isXLinear) {
-            for (var i = 1; i < xLinearGridSize; i++) {
-                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
-                gridVertexData.push(-1);
-                gridVertexData.push(0);
-                gridVertexData.push(-1 + i * (2 / xLinearGridSize));
-                gridVertexData.push(1);
-                gridVertexData.push(0);
-                totalLineCount += 1;
-            }
-        } else {
-            for (var i = 0; i < xLogGridSize; i++) {
-                var factor = Math.pow(10, i);
-                for (var j = 1; j < 10; j++) {
-                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
-                    gridVertexData.push(-1);
-                    gridVertexData.push(0);
-                    gridVertexData.push(-1 + (Math.log10(factor*j)/xLogGridSize)*2);
-                    gridVertexData.push(1);
-                    gridVertexData.push(0);
-                    totalLineCount += 1;
-                }
-            }
-        }
-
-        if (isYLinear) {
-            for (var i = 1; i < yLinearGridSize; i++) {
-                gridVertexData.push(-1);
-                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
-                gridVertexData.push(0);
-                gridVertexData.push(1);
-                gridVertexData.push(-1 + i * (2 / yLinearGridSize));
-                gridVertexData.push(0);
-                totalLineCount += 1;
-            }
-        } else {
-            for (var i = 0; i < yLogGridSize; i++) {
-                var factor = Math.pow(10, i);
-                for (var j = 1; j < 10; j++) {
-                    gridVertexData.push(-1);
-                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
-                    gridVertexData.push(0);
-                    gridVertexData.push(1);
-                    gridVertexData.push(-1 + (Math.log10(factor*j)/yLogGridSize)*2);
-                    gridVertexData.push(0);
-                    totalLineCount += 1;
-                }
-            }
-        }
-    }
-
     function updateHaloData(centerX, centerY, size, additionalRadius) {
         haloVertexData = [];
         totalHaloVerticesCount = 0;
@@ -828,8 +826,6 @@
             currentYearAlpha = transparencySlider.slider("value")/100.0;
         }
         drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, currentYearAlpha, circleVertexData, circleIndexData);
-//        var currentYearBorderData = updateBoarderData(currentYearCenterX, currentYearCenterY, currentYearSizes);
-//        drawCircles(gl, currentYearBorderData);
 
         if (isCountrySelected) {
             var selectedCountryAlpha = 1.0;
@@ -848,8 +844,6 @@
                 currIndexStart += sliceSize*96;
             }
             drawFilledCircles(gl, selectedCountrySizes.slice(currStart,selectedCountrySizes.length), selectedCountryCenterX.slice(currStart,selectedCountryCenterX.length), selectedCountryCenterY.slice(currStart,selectedCountryCenterY.length), selectedCountryRegions.slice(currStart,selectedCountryRegions.length), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart,selectedCountryVertexData.length), selectedCountryIndexData.slice(currIndexStart,selectedCountryIndexData.length));
-//            var selectedBorderData = updateBoarderData(selectedCountryCenterX, selectedCountryCenterY, selectedCountrySizes);
-//            drawCircles(gl, selectedBorderData);
             for (var i = 0; i < trendLineVertexData.length; i++) {
                 drawLine(gl, trendLineVertexData[i], trendLineVerticesCounts[i], trendLineRegionCodes[i]);
             }
