@@ -269,7 +269,7 @@
                 } else {
                     selectedCountries.push(name);
                 }
-                updatecountryList();
+//                updatecountryList();
             });
         }
 
@@ -292,6 +292,15 @@
         }
     }
 
+    function addCountryByName(countryName) {
+        for (var i = 0; i < countries.length; i++) {
+            if (countries[i].name == countryName) {
+                addCountry(countries[i]);
+                break;
+            }
+        }
+    }
+
     function removeCountry(name) {
         var index = countries.indexOf(name);
         if (index > -1) {
@@ -304,14 +313,23 @@
         }
     }
 
+    function removeCountryByName(countryName) {
+        for (var i = 0; i < countries.length; i++) {
+            if (countries[i].name == countryName) {
+                removeCountry(countries[i]);
+                break;
+            }
+        }
+    }
+
     $("#selectAllButton").click(function() {
         countries.forEach(addCountry);
-        updatecountryList();
+//        updatecountryList();
     });
 
     $("#deselectAllButton").click(function() {
         countries.forEach(removeCountry);
-        updatecountryList();
+//        updatecountryList();
     });
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
@@ -322,6 +340,8 @@
     uniform float regions[SHAPE_COUNT];
     uniform int useVertexPos;
     uniform int useHaloColor;
+    uniform int useRegionOverride;
+    uniform float regionOverride;
 
     attribute vec2 position;
     attribute float shapeIndex;
@@ -338,6 +358,9 @@
                 colorToUse = vec3(0.5,0.3,0.0);
             } else {
                 colorToUse = vec3(0.0,0.0,0.0);
+            }
+            if (useRegionOverride == 1) {
+                region = regionOverride;
             }
         } else {
             vec2 center = centers[int(shapeIndex)];
@@ -456,6 +479,18 @@
     var currentYearRegions = [];
     var allCircleData = [];
 
+    var selectedCountrySizes = [];
+    var selectedCountryCenterX = [];
+    var selectedCountryCenterY = [];
+    var selectedCountryRegions = [];
+
+    var selectedCountryVertexData = [];
+    var selectedCountryIndexData = [];
+
+    var trendLineVertexData = [];
+    var trendLineVerticesCounts = [];
+    var trendLineRegionCodes = [];
+
     var highlightSizes = [];
     var highlightCenterX = [];
     var highlightCenterY = [];
@@ -484,15 +519,11 @@
     var minPopulation = Math.min.apply(Math, flattenValue(populations));
     var maxPopulation = Math.max.apply(Math, flattenValue(populations));
 
-    var prevYearSliderValue = -1.0;
-
     function updateCircleData() {
         currentYearSizes = [];
         currentYearCenterX = [];
         currentYearCenterY = [];
         currentYearRegions = [];
-
-        allCircleData = [];
 
         circleVertexData = [];
         circleIndexData = [];
@@ -553,7 +584,92 @@
             currentYearRegions.push(regionCode);
             allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
         }
-        prevYearSliderValue = yearSlider.slider("value");
+    }
+
+    function updateSelectedCountryCircles() {
+
+        selectedCountrySizes = [];
+        selectedCountryCenterX = [];
+        selectedCountryCenterY = [];
+        selectedCountryRegions = [];
+        trendLineVertexData = [];
+        trendLineVerticesCounts = [];
+        trendLineRegionCodes = [];
+
+        selectedCountryVertexData = [];
+        selectedCountryIndexData = [];
+        var currentYearIndex = yearSlider.slider("value") - 1800;
+        var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
+        var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
+        var counter = 0;
+
+        for (var countryIndex = 0; countryIndex < selectedCountries.length; countryIndex++) {
+            var countryName = selectedCountries[countryIndex];
+            var filteredCountryList = countryList.filter(function(e){ return e["name"] == countryName });
+            var region = filteredCountryList[0]["region"];
+            var regionCode = 4;
+            if (region == "Asia") {
+                regionCode = 1;
+            } else if (region === "Europe") {
+                regionCode = 2;
+            } else if (region == "Africa") {
+                regionCode = 3;
+            }
+
+            var singleTrendLineVertexData = [];
+            var singleTrendLineVertexCount = 0;
+            var singleTrendLineRegionCode = regionCode;
+            for (var k = 0; k <= currentYearIndex; k++) {
+                var populationVal = populations[countryName][k];
+                var gdpPerCapita = gdpPerCapitas[countryName][k];
+                var lifeExpectancy = lifeExpectancies[countryName][k];
+                if (populationVal == null || populationVal == 0 || gdpPerCapita == null || gdpPerCapita == 0 || lifeExpectancy == null || lifeExpectancy == 0) {
+                    continue;
+                }
+                var normalizedPopulationval = Math.sqrt(populationScaleSlider.slider("value")*(populationVal-minPopulation)/(1000*(maxPopulation-minPopulation)));
+                selectedCountrySizes.push(normalizedPopulationval);
+
+                var normalizedGdpPerCapita = gdpPerCapitaToScale(gdpPerCapita, isXLinear);
+                selectedCountryCenterX.push(normalizedGdpPerCapita);
+                var normalizedLifeExpectancy = lifeExpectancyToScale(lifeExpectancy, isYLinear);
+                selectedCountryCenterY.push(normalizedLifeExpectancy);
+                singleTrendLineVertexData.push(normalizedGdpPerCapita);
+                singleTrendLineVertexData.push(normalizedLifeExpectancy);
+                singleTrendLineVertexData.push(0);
+                singleTrendLineVertexCount += 1;
+
+
+                selectedCountryRegions.push(regionCode);
+                allCircleData.push([countryName, k+1800, populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
+
+                selectedCountryVertexData.push(0.0);
+                selectedCountryVertexData.push(0.0);
+                selectedCountryVertexData.push(counter * 1.0);
+
+                for (var j = 0; j < cornerCount; j++) {
+                    var theta = 2 * Math.PI * j / cornerCount;
+                    var x = Math.cos(theta);
+                    var y = Math.sin(theta);
+                    selectedCountryVertexData.push(x);
+                    selectedCountryVertexData.push(y);
+                    selectedCountryVertexData.push(counter * 1.0);
+                }
+
+                var start = counter * (cornerCount + 1);
+                for (var j = 0; j < cornerCount; j++) {
+                    selectedCountryIndexData.push(start);
+                    selectedCountryIndexData.push(start + j + 1);
+                    selectedCountryIndexData.push(start + (j + 1) % cornerCount + 1);
+                }
+                counter += 1;
+                if (counter == 200) {
+                    counter = 0;
+                }
+            }
+            trendLineVertexData.push(singleTrendLineVertexData);
+            trendLineVerticesCounts.push(singleTrendLineVertexCount);
+            trendLineRegionCodes.push(singleTrendLineRegionCode);
+        }
     }
 
     function updateHighlightCircleData() {
@@ -701,6 +817,9 @@
         var useHaloColorLocation = gl.getUniformLocation(program, "useHaloColor");
         gl.uniform1i(useHaloColorLocation, 0);
 
+        var useRegionOverrideLocation = gl.getUniformLocation(program, "useRegionOverride");
+        gl.uniform1i(useRegionOverrideLocation, 0);
+
         var gridVertexArray = new Float32Array(gridVertexData);
         var gridVertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexBuffer);
@@ -715,12 +834,41 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(vertPositionLocation);
 
+        allCircleData = [];
+
         updateCircleData();
 
-        if (highlightSizes.length > 0) {
-            var transparencyFromSlider = transparencySlider.slider("value")/200.0;
-            drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
+        var isHighlighted = (highlightSizes.length > 0);
+        var isCountrySelected = (selectedCountries.length > 0);
 
+        var currentYearAlpha = Math.min(1.0, 1.5*transparencySlider.slider("value")/100.0);
+        if (isHighlighted || isCountrySelected) {
+            currentYearAlpha = transparencySlider.slider("value")/100.0;
+        }
+        drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, currentYearAlpha, circleVertexData, circleIndexData);
+
+        if (isCountrySelected) {
+            var selectedCountryAlpha = 1.0;
+            if (isHighlighted) {
+                selectedCountryAlpha = transparencySlider.slider("value") / 100.0;
+            }
+            updateSelectedCountryCircles();
+            var sliceSize = 200;
+            var currStart = 0;
+            var currVertexStart = 0;
+            var currIndexStart = 0;
+            while ((currStart + sliceSize) < selectedCountrySizes.length) {
+                drawFilledCircles(gl, selectedCountrySizes.slice(currStart,currStart+sliceSize), selectedCountryCenterX.slice(currStart,currStart+sliceSize), selectedCountryCenterY.slice(currStart,currStart+sliceSize), selectedCountryRegions.slice(currStart,currStart+sliceSize), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart,currVertexStart+sliceSize*99), selectedCountryIndexData.slice(currIndexStart,currIndexStart+sliceSize*96));
+                currStart += sliceSize;
+                currVertexStart += sliceSize*99;
+                currIndexStart += sliceSize*96;
+            }
+            drawFilledCircles(gl, selectedCountrySizes.slice(currStart,selectedCountrySizes.length), selectedCountryCenterX.slice(currStart,selectedCountryCenterX.length), selectedCountryCenterY.slice(currStart,selectedCountryCenterY.length), selectedCountryRegions.slice(currStart,selectedCountryRegions.length), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart,selectedCountryVertexData.length), selectedCountryIndexData.slice(currIndexStart,selectedCountryIndexData.length));
+            for (var i = 0; i < trendLineVertexData.length; i++) {
+                drawLine(gl, trendLineVertexData[i], trendLineVerticesCounts[i], trendLineRegionCodes[i]);
+            }
+        }
+        if (isHighlighted) {
             updateHighlightCircleData();
             drawFilledCircles(gl, highlightSizes, highlightCenterX, highlightCenterY, highlightRegions, 1.0, highlightVertexData, highlightIndexData);
 
@@ -732,10 +880,6 @@
 
             updateHaloData(highlightCenterX[0], highlightCenterY[0], highlightSizes[0], 0.06);
             drawCircle(gl, haloVertexData);
-
-        } else {
-            var transparencyFromSlider = Math.min(1.0, 2*transparencySlider.slider("value")/100.0);
-            drawFilledCircles(gl, currentYearSizes, currentYearCenterX, currentYearCenterY, currentYearRegions, transparencyFromSlider, circleVertexData, circleIndexData);
         }
 
         gl.useProgram(null);
@@ -768,6 +912,9 @@
 
         var alphaLocation = gl.getUniformLocation(program, "alpha");
         gl.uniform1f(alphaLocation, alpha);
+
+        var useRegionOverrideLocation = gl.getUniformLocation(program, "useRegionOverride");
+        gl.uniform1i(useRegionOverrideLocation, 0);
 
         var currentVertexArray = new Float32Array(currentVertexData);
         var currentVertexBuffer = gl.createBuffer();
@@ -809,6 +956,9 @@
         var useHaloColorLocation = gl.getUniformLocation(program, "useHaloColor");
         gl.uniform1i(useHaloColorLocation, 1);
 
+        var useRegionOverrideLocation = gl.getUniformLocation(program, "useRegionOverride");
+        gl.uniform1i(useRegionOverrideLocation, 0);
+
         var vertexArray = new Float32Array(vertexData);
         var vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -820,6 +970,38 @@
         gl.enableVertexAttribArray(vertPositionLocation);
         gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.LINE_LOOP, 0, totalHaloVerticesCount);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.disableVertexAttribArray(vertPositionLocation);
+    }
+
+    function drawLine(gl, vertexData, totalVerticesCount, regionCode) {
+
+        var isGridForFragmentShaderLocation = gl.getUniformLocation(program, "useVertexPos");
+        gl.uniform1i(isGridForFragmentShaderLocation, 1);
+
+        var useSolidLocation = gl.getUniformLocation(program, "useSolid");
+        gl.uniform1i(useSolidLocation, 0);
+
+        var useHaloColorLocation = gl.getUniformLocation(program, "useHaloColor");
+        gl.uniform1i(useHaloColorLocation, 0);
+
+        var useRegionOverrideLocation = gl.getUniformLocation(program, "useRegionOverride");
+        gl.uniform1i(useRegionOverrideLocation, 1);
+
+        var regionOverrideLocation = gl.getUniformLocation(program, "regionOverride");
+        gl.uniform1f(regionOverrideLocation, regionCode);
+
+        var vertexArray = new Float32Array(vertexData);
+        var vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        var vertPositionLocation = gl.getAttribLocation(program, "vert_position");
+        gl.enableVertexAttribArray(vertPositionLocation);
+        gl.vertexAttribPointer(vertPositionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINE_STRIP, 0, totalVerticesCount);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(vertPositionLocation);
     }
@@ -858,6 +1040,39 @@
                 highlightCenterX.push(normalizedGdpPerCapita);
                 highlightCenterY.push(normalizedLifeExpectancy);
                 highlightRegions.push(regionCode);
+                $("#country").text(entry[0]);
+                $("#year").text(entry[1]);
+                $("#population").text(entry[2]);
+                $("#gdpPerCapitaDataPoint").text(entry[3]);
+                $("#lifeExpectancyDataPoint").text(entry[4]);
+                break;
+            }
+        }
+    }
+
+    function updateCountrySelection(event) {
+        var clientRect = $("#webglCanvas")[0].getBoundingClientRect();
+        var xPos = event.clientX - clientRect.left;
+        var normalizedXPos = xPos/(clientRect.right - clientRect.left);
+
+        var yPos = clientRect.bottom - event.clientY;
+        var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
+
+        for (var i = allCircleData.length-1; i >= 0; i--) {
+//            allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
+            var entry = allCircleData[i];
+            var normalizedPopulationval = entry[entry.length-4];
+            var normalizedGdpPerCapita = entry[entry.length-3];
+            var normalizedLifeExpectancy = entry[entry.length-2];
+
+            var glNormalizedXPos = normalizedXPos*2-1;
+            var glNormalizedYPos = normalizedYPos*2-1;
+            if (Math.sqrt(Math.pow(glNormalizedXPos-normalizedGdpPerCapita, 2) + Math.pow(glNormalizedYPos-normalizedLifeExpectancy,2)) <= normalizedPopulationval) {
+                if ($.inArray(entry[0], selectedCountries) == -1) {
+                    addCountryByName(entry[0]);
+                } else {
+                    removeCountryByName(entry[0]);
+                }
                 break;
             }
         }
@@ -874,6 +1089,10 @@
     $("#webglCanvas").mouseout(function(event){
         $("#gdpPerCapita").text("");
         $("#lifeExpectancy").text("");
+    });
+
+    $("#webglCanvas").click(function(event){
+        updateCountrySelection(event);
     });
 
 </script>
