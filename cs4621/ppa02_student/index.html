@@ -987,7 +987,7 @@
 
     window.requestAnimationFrame(updateWebGL);
 
-    function updateCursorData(currElement, event) {
+    function updateCursorData(event) {
         $("#cursor-tooltip").tooltip('hide');
         highlightSizes = [];
         highlightCenterX = [];
@@ -1066,11 +1066,11 @@
     }
 
     $("#webglCanvas").mousemove(function (event) {
-        updateCursorData($("#webglCanvas"), event);
+        updateCursorData(event);
     });
 
     $("#webglCanvas").mouseover(function (event) {
-        updateCursorData($("#webglCanvas"), event);
+        updateCursorData(event);
     });
 
     $("#webglCanvas").mouseout(function (event) {
