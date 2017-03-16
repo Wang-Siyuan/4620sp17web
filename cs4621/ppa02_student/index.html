@@ -26,22 +26,20 @@
     <h1>CS 4621 PPA2 <span class="subtitle">Data Visualization</span></h1>
 
     <h2>Team Members</h2>
-
     <ul>
-        <li>Please list your team members with NetID in this unordered list.</li>
-        <li>Siyuan Wang(sw884)</li>
+        <li><h3>Siyuan Wang(sw884)</h3></li>
     </ul>
 
-    <div style="float:left; width: 60%">
+    <div style="float:left; width: 70%">
         <div align="center" id="currentYear"></div>
         <div align="center">
-            <canvas id="webglCanvas" style="border: none; background-color: lavenderblush;" width="512" height="512"></canvas>
+            <canvas id="webglCanvas" style="border: none; background-color: whitesmoke;" width="800" height="800"></canvas>
         </div>
         <div>
-            <table>
+            <table style="margin-top: 10px;">
                 <tr>
                     <td>
-                        <button id="playButton">Play!</button>
+                        <button id="playButton" class="btn btn-primary">Play!</button>
                     </td>
                     <td width="10"></td>
                     <td>
@@ -53,22 +51,22 @@
                     </td>
                 </tr>
             </table>
-            <table class="table">
+            <table class="table table-bordered" style="margin-top: 10px;">
                 <tr>
-                    <td width="200">
+                    <td width="20%" style="vertical-align: middle">
                         <div>GDP per Capita Scale</div>
                     </td>
                     <td>
-                        <select id="gdpPerCapitaScale">
+                        <select id="gdpPerCapitaScale" class="form-control">
                             <option value="Logarithm" selected="selected">Logarithm</option>
                             <option value="Linear">Linear</option>
                         </select>
                     </td>
-                    <td width="250">
+                    <td width="20%" style="vertical-align: middle">
                         <div>Life Expectancy Scale</div>
                     </td>
                     <td>
-                        <select id="lifeExpectancyScale">
+                        <select id="lifeExpectancyScale" class="form-control">
                             <option value="Logarithm">Logarithm</option>
                             <option value="Linear" selected="selected">Linear</option>
                         </select>
@@ -76,7 +74,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <div>Population Scale</div>
+                        <div style="vertical-align: middle">Population Scale</div>
                     </td>
                     <td>
                         <table>
@@ -86,7 +84,7 @@
                         </table>
                     </td>
                     <td>
-                        <div>Transparency</div>
+                        <div style="vertical-align: middle">Transparency</div>
                     </td>
                     <td>
                         <table>
@@ -99,55 +97,45 @@
             </table>
         </div>
     </div>
-    <div style="float:right; width: 39%">
-        <div>Cursor</div>
-            <table border="1">
-                <tr>
-                    <td>GDP per Capita($)</td>
-                    <td id="gdpPerCapita" width="50%" ></td>
-                </tr>
-                <tr>
-                    <td>Life Expectancy(years)</td>
-                    <td id="lifeExpectancy" width="50%"></td>
-                </tr>
-            </table>
-        <div>Data Point</div>
-            <table border="1">
-                <tr>
-                    <td>Country</td>
-                    <td id="country" width="50%"></td>
-                </tr>
-                <tr>
-                    <td>Year</td>
-                    <td id="year" width="50%"></td>
-                </tr>
-                <tr>
-                    <td>Population</td>
-                    <td id="population" width="50%"></td>
-                </tr>
-                <tr>
-                    <td>GDP per Capita($)</td>
-                    <td id="gdpPerCapitaDataPoint" width="50%"></td>
-                </tr>
-                <tr>
-                    <td>Life Expectancy(years)</td>
-                    <td id="lifeExpectancyDataPoint" width="50%"></td>
-                </tr>
-            </table>
-        <div>Country List</div>
-        <table>
+    <div style="float:right; width: 29%">
+        <h3 style="margin-top: 25%">Cursor</h3>
+        <table class="table table-bordered">
             <tr>
-                <td width="300">
-                    <div style="overflow: auto; height: 320px;" id="countryCheckBoxes"></div>
-                </td>
-                <td width="10"></td>
-                <td width="300">
-                    <div style="overflow: auto; height: 320px" id="countryList"></div>
-                </td>
+                <td>GDP per Capita($)</td>
+                <td id="gdpPerCapita" width="50%" ></td>
             </tr>
-        </table><br>
-        <button id="selectAllButton">Select All</button> &nbsp;
-        <button id="deselectAllButton">Deselect All</button>
+            <tr>
+                <td>Life Expectancy(years)</td>
+                <td id="lifeExpectancy" width="50%"></td>
+            </tr>
+        </table>
+        <h3 style="margin-top: 5%">Data Point</h3>
+        <table class="table table-bordered">
+            <tr>
+                <td>Country</td>
+                <td id="country" width="50%"></td>
+            </tr>
+            <tr>
+                <td>Year</td>
+                <td id="year" width="50%"></td>
+            </tr>
+            <tr>
+                <td>Population</td>
+                <td id="population" width="50%"></td>
+            </tr>
+            <tr>
+                <td>GDP per Capita($)</td>
+                <td id="gdpPerCapitaDataPoint" width="50%"></td>
+            </tr>
+            <tr>
+                <td>Life Expectancy(years)</td>
+                <td id="lifeExpectancyDataPoint" width="50%"></td>
+            </tr>
+        </table>
+        <h3>Country List</h3>
+        <div style="overflow-y: scroll; height: 350px;" id="countryCheckBoxes"></div>
+        <!--<button id="selectAllButton" style="margin-top: 5%" class="btn btn-primary">Select All</button>-->
+        <button id="deselectAllButton" style="margin-top: 5%" class="btn btn-danger">Deselect All</button>
     </div>
 </div>
 
@@ -1013,6 +1001,13 @@
         highlightCenterX = [];
         highlightCenterY = [];
         highlightRegions = [];
+        $("#gdpPerCapita").text("");
+        $("#lifeExpectancy").text("");
+        $("#country").text("");
+        $("#year").text("");
+        $("#population").text("");
+        $("#gdpPerCapitaDataPoint").text("");
+        $("#lifeExpectancyDataPoint").text("");
 
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
@@ -1041,9 +1036,9 @@
                 highlightRegions.push(regionCode);
                 $("#country").text(entry[0]);
                 $("#year").text(entry[1]);
-                $("#population").text(entry[2]);
-                $("#gdpPerCapitaDataPoint").text(entry[3]);
-                $("#lifeExpectancyDataPoint").text(entry[4]);
+                $("#population").text(parseInt(entry[2].toFixed(0)).toLocaleString());
+                $("#gdpPerCapitaDataPoint").text(entry[3].toFixed(2));
+                $("#lifeExpectancyDataPoint").text(entry[4].toFixed(2));
                 break;
             }
         }
@@ -1087,6 +1082,11 @@
     $("#webglCanvas").mouseout(function(event){
         $("#gdpPerCapita").text("");
         $("#lifeExpectancy").text("");
+        $("#country").text("");
+        $("#year").text("");
+        $("#population").text("");
+        $("#gdpPerCapitaDataPoint").text("");
+        $("#lifeExpectancyDataPoint").text("");
     });
 
     $("#webglCanvas").click(function(event){
