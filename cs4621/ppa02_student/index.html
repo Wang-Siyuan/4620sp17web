@@ -301,13 +301,13 @@
         }
     }
 
-    function removeCountry(name) {
-        var index = countries.indexOf(name);
+    function removeCountry(country) {
+        var index = countries.indexOf(country);
         if (index > -1) {
             var checkBoxName = "checkBox" + index;
             var checkBox = $("#" + checkBoxName);
             if (checkBox.prop("checked")) {
-                selectedCountries.splice(name, 1);
+                selectedCountries.splice(selectedCountries.indexOf(country.name), 1);
                 checkBox.prop("checked", false);
             }
         }
@@ -1026,7 +1026,6 @@
         $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
 
         for (var i = allCircleData.length-1; i >= 0; i--) {
-//            allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
             var entry = allCircleData[i];
             var normalizedPopulationval = entry[entry.length-4];
             var normalizedGdpPerCapita = entry[entry.length-3];
@@ -1059,7 +1058,6 @@
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
 
         for (var i = allCircleData.length-1; i >= 0; i--) {
-//            allCircleData.push([countryName, yearSlider.slider("value"), populationVal, gdpPerCapita, lifeExpectancy, normalizedPopulationval, normalizedGdpPerCapita, normalizedLifeExpectancy], regionCode);
             var entry = allCircleData[i];
             var normalizedPopulationval = entry[entry.length-4];
             var normalizedGdpPerCapita = entry[entry.length-3];
