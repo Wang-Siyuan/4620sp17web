@@ -7,12 +7,13 @@
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <title>CS 4621: PPA2 -- Data Visualization</title>
 
-    <!-- Bootstrap -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/cs4620.css" rel="stylesheet">
     <link href="css/jquery-ui.min.css" rel="stylesheet">
     <link href="css/jquery-ui.theme.min.css" rel="stylesheet">
     <link href="css/jquery-ui.structure.min.css" rel="stylesheet">
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -21,7 +22,6 @@
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
 </head>
-<>
 <div class="container">
     <h1>CS 4621 PPA2 <span class="subtitle">Data Visualization</span></h1>
 
@@ -137,11 +137,14 @@
         <!--<button id="selectAllButton" style="margin-top: 5%" class="btn btn-primary">Select All</button>-->
         <button id="deselectAllButton" style="margin-top: 5%" class="btn btn-danger">Deselect All</button>
     </div>
+    <i id="cursor-tooltip" data-toggle="tooltip" data-placement="right" title="Tooltip for image" data-animation="false" data-trigger="manual" style="position: absolute"/>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
 <script src="js/jquery-3.1.1.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+
 <!-- Data -->
 <script src="data/country_list.js"></script>
 <script src="data/population.js"></script>
@@ -451,7 +454,6 @@
     var circleIndexData = [];
     var gridVertexData = [];
     var haloVertexData = [];
-    var totalHaloVerticesCount = 0;
     var highlightVertexData = [];
     var highlightIndexData = [];
 
@@ -482,7 +484,6 @@
     var lifeExpectancies = getLifeExpectancy();
     var populations = getPopulation();
     var countryList = getCountryList();
-    var shapeCount = countryList.length;
     var populationScaleSlider = $("#populationScaleSlider");
     var transparencySlider = $("#transparencySlider");
     populationScaleSlider.slider("value", 40);
@@ -602,7 +603,7 @@
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         var counter = 0;
-        for (var i=0; i<shapeCount; i++) {
+        for (var i=0; i<countryList.length; i++) {
 
             var countryName = countryList[i]["name"];
             var populationVal = populations[countryName][currentYearIndex];
@@ -768,7 +769,6 @@
 
     function updateHaloData(centerX, centerY, size, additionalRadius) {
         haloVertexData = [];
-        totalHaloVerticesCount = 0;
         for (var i = 0; i < cornerCount; i++) {
             var theta = 2*Math.PI*i/cornerCount;
             var x = (size + additionalRadius)*Math.cos(theta);
@@ -776,7 +776,6 @@
             haloVertexData.push(centerX + x);
             haloVertexData.push(centerY + y);
             haloVertexData.push(0);
-            totalHaloVerticesCount += 1;
         }
     }
 
@@ -988,7 +987,8 @@
 
     window.requestAnimationFrame(updateWebGL);
 
-    function updateCursorData(event) {
+    function updateCursorData(currElement, event) {
+        $("#cursor-tooltip").tooltip('hide');
         highlightSizes = [];
         highlightCenterX = [];
         highlightCenterY = [];
@@ -1011,6 +1011,8 @@
         var yPos = clientRect.bottom - event.clientY;
         var normalizedYPos = yPos/(clientRect.bottom - clientRect.top);
         $("#lifeExpectancy").text(fromScaleToLifeExpectancy(normalizedYPos, isYLinear).toFixed(2));
+        $("#cursor-tooltip").css({top: window.pageYOffset + event.pageY, left: window.pageXOffset + event.pageX });
+        $("#cursor-tooltip").tooltip('show');
 
         for (var i = allCircleData.length-1; i >= 0; i--) {
             var entry = allCircleData[i];
@@ -1063,15 +1065,15 @@
         }
     }
 
-    $("#webglCanvas").mousemove(function(event){
-        updateCursorData(event);
+    $("#webglCanvas").mousemove(function (event) {
+        updateCursorData($("#webglCanvas"), event);
     });
 
-    $("#webglCanvas").mouseover(function(event){
-        updateCursorData(event);
+    $("#webglCanvas").mouseover(function (event) {
+        updateCursorData($("#webglCanvas"), event);
     });
 
-    $("#webglCanvas").mouseout(function(event){
+    $("#webglCanvas").mouseout(function (event) {
         $("#gdpPerCapita").text("");
         $("#lifeExpectancy").text("");
         $("#country").text("");
@@ -1079,9 +1081,10 @@
         $("#population").text("");
         $("#gdpPerCapitaDataPoint").text("");
         $("#lifeExpectancyDataPoint").text("");
+        $("#cursor-tooltip").tooltip('hide');
     });
 
-    $("#webglCanvas").click(function(event){
+    $("#webglCanvas").click(function (event) {
         updateCountrySelection(event);
     });
 
