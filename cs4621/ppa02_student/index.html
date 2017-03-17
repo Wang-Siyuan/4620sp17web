@@ -225,18 +225,6 @@
 
         $("#bubbleLabel").text($("#datasetSelection").val());
         $("#bubbleScaleLabel").text($("#datasetSelection").val() + " Scale");
-        if ($("#datasetSelection").val() == "Population") {
-            bubbleValues = getPopulation();
-            baseYear = 1800;
-            yearSlider.slider('option',{min: 1800, max: 2015});
-        } else {
-            bubbleValues = getOilConsumptionPerCapita();
-            baseYear = 1965;
-            yearSlider.slider('option',{min: 1965, max: 2010});
-        }
-        minBubbleValue = Math.min.apply(Math, flattenValue(bubbleValues));
-        maxBubbleValue = Math.max.apply(Math, flattenValue(bubbleValues));
-
         window.requestAnimationFrame(updateUi);
     }
     window.requestAnimationFrame(updateUi);
@@ -391,13 +379,13 @@
                 gl_FragColor = vec4(0.0,0.0,0.0, alpha);
             } else {
                 if (int(region) == 1) {
-                    gl_FragColor = vec4(1.0,0.0,0.0, alpha);
+                    gl_FragColor = vec4(0.938,0.5,0.5, alpha);
                 } else if (int(region) == 2) {
-                    gl_FragColor = vec4(0.0,1.0,0.0, alpha);
+                    gl_FragColor = vec4(0.496,1.0,0.0, alpha);
                 } else if (int(region) == 3) {
-                    gl_FragColor = vec4(0.0,0.0,1.0, alpha);
+                    gl_FragColor = vec4(0.0,0.746,1.0, alpha);
                 } else {
-                    gl_FragColor = vec4(1.0,1.0,0.0, alpha);
+                    gl_FragColor = vec4(1.0,1.0,0.398, alpha);
                 }
             }
         }
@@ -517,12 +505,55 @@
         var falttenedArr = [].concat.apply([], arrayOfValueArray);
         return falttenedArr.filter(function(someVal){ return someVal != null });
     }
-    var minGDP = Math.min.apply(Math, flattenValue(gdpPerCapitas));
-    var maxGDP = Math.max.apply(Math, flattenValue(gdpPerCapitas));
-    var minLifeExpectancy = Math.min.apply(Math, flattenValue(lifeExpectancies));
-    var maxLifeExpectancy = Math.max.apply(Math, flattenValue(lifeExpectancies));
-    var minBubbleValue = Math.min.apply(Math, flattenValue(bubbleValues));
-    var maxBubbleValue = Math.max.apply(Math, flattenValue(bubbleValues));
+    var MIN_GDP_INITIAL = Math.max.apply(Math, flattenValue(gdpPerCapitas));
+    var MAX_GDP_INITIAL = Math.min.apply(Math, flattenValue(gdpPerCapitas));
+    var MIN_LIFE_EXPECTANCY_INITIAL = Math.max.apply(Math, flattenValue(lifeExpectancies));
+    var MAX_LIFE_EXPECTANCY_INITIAL = Math.min.apply(Math, flattenValue(lifeExpectancies));
+    var MIN_BUBBLE_VALUE_INITIAL = Math.max.apply(Math, flattenValue(bubbleValues));
+    var MAX_BUBBLE_VALUE_INITIAL = Math.min.apply(Math, flattenValue(bubbleValues));
+
+    var minGDP = MIN_GDP_INITIAL;
+    var maxGDP = MAX_GDP_INITIAL;
+    var minLifeExpectancy = MIN_LIFE_EXPECTANCY_INITIAL;
+    var maxLifeExpectancy = MAX_LIFE_EXPECTANCY_INITIAL;
+    var minBubbleValue = MIN_BUBBLE_VALUE_INITIAL;
+    var maxBubbleValue = MAX_BUBBLE_VALUE_INITIAL;
+
+    function updateMinMax() {
+
+        minGDP = MIN_GDP_INITIAL;
+        maxGDP = MAX_GDP_INITIAL;
+        minLifeExpectancy = MIN_LIFE_EXPECTANCY_INITIAL;
+        maxLifeExpectancy = MAX_LIFE_EXPECTANCY_INITIAL;
+        minBubbleValue = MIN_BUBBLE_VALUE_INITIAL;
+        maxBubbleValue = MAX_BUBBLE_VALUE_INITIAL;
+
+        var yearMin = $("#yearSlider").slider("option", "min");
+        var yearMax = $("#yearSlider").slider("option", "max");
+        for (var countryIndex = 0; countryIndex < countryList.length; countryIndex++) {
+            var countryName = countryList[countryIndex].name;
+            for (var k = 0; k <= (yearMax - yearMin); k++) {
+                var bubbleVal = null;
+                if (bubbleValues[countryName]) {
+                    bubbleVal = bubbleValues[countryName][k];
+                }
+                var gdpPerCapita = gdpPerCapitas[countryName][baseYear - 1800 + k];
+                var lifeExpectancy = lifeExpectancies[countryName][baseYear - 1800 + k];
+                if (bubbleVal == null || bubbleVal == 0 || gdpPerCapita == null || gdpPerCapita == 0 || lifeExpectancy == null || lifeExpectancy == 0) {
+                    continue;
+                }
+                minGDP = Math.min(minGDP, gdpPerCapita);
+                maxGDP = Math.max(maxGDP, gdpPerCapita);
+                minLifeExpectancy = Math.min(minLifeExpectancy, lifeExpectancy);
+                maxLifeExpectancy = Math.max(maxLifeExpectancy, lifeExpectancy);
+                minBubbleValue = Math.min(minBubbleValue, bubbleVal);
+                maxBubbleValue = Math.max(maxBubbleValue, bubbleVal);
+            }
+        }
+    }
+
+    updateMinMax();
+
 
     function gdpPerCapitaToScale(gdpPerCapita, isLinear){
         if (isLinear) {
@@ -636,8 +667,8 @@
             if (bubbleValues[countryName]) {
                 bubbleVal = bubbleValues[countryName][currentYearIndex];
             }
-            var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex];
-            var lifeExpectancy = lifeExpectancies[countryName][currentYearIndex];
+            var gdpPerCapita = gdpPerCapitas[countryName][currentYearIndex + (baseYear-1800)];
+            var lifeExpectancy = lifeExpectancies[countryName][currentYearIndex + (baseYear-1800)];
             if (bubbleVal == null || bubbleVal == 0 || gdpPerCapita == null || gdpPerCapita == 0 || lifeExpectancy == null || lifeExpectancy == 0) {
                 continue;
             }
@@ -722,8 +753,8 @@
                 if (bubbleValues[countryName]) {
                     bubbleVal = bubbleValues[countryName][k];
                 }
-                var gdpPerCapita = gdpPerCapitas[countryName][k];
-                var lifeExpectancy = lifeExpectancies[countryName][k];
+                var gdpPerCapita = gdpPerCapitas[countryName][k + (baseYear - 1800)];
+                var lifeExpectancy = lifeExpectancies[countryName][k + (baseYear - 1800)];
                 if (bubbleVal == null || bubbleVal == 0 || gdpPerCapita == null || gdpPerCapita == 0 || lifeExpectancy == null || lifeExpectancy == 0) {
                     continue;
                 }
@@ -1133,6 +1164,19 @@
 
     $("#webglCanvas").click(function (event) {
         updateCountrySelection(event);
+    });
+
+    $("#datasetSelection").change(function() {
+        if ($("#datasetSelection").val() == "Population") {
+            bubbleValues = getPopulation();
+            baseYear = 1800;
+            yearSlider.slider('option',{min: 1800, max: 2015});
+        } else {
+            bubbleValues = getOilConsumptionPerCapita();
+            baseYear = 1965;
+            yearSlider.slider('option',{min: 1965, max: 2010});
+        }
+        updateMinMax();
     });
 
 </script>
