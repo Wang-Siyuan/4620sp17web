@@ -74,7 +74,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <div style="vertical-align: middle">Population Scale</div>
+                        <div style="vertical-align: middle" id="bubbleScaleLabel">Population Scale</div>
                     </td>
                     <td>
                         <table>
@@ -224,6 +224,18 @@
         $("#currentYear").html("<h1>" + year + "</h1>");
 
         $("#bubbleLabel").text($("#datasetSelection").val());
+        $("#bubbleScaleLabel").text($("#datasetSelection").val() + " Scale");
+        if ($("#datasetSelection").val() == "Population") {
+            bubbleValues = getPopulation();
+            baseYear = 1800;
+            yearSlider.slider('option',{min: 1800, max: 2015});
+        } else {
+            bubbleValues = getOilConsumptionPerCapita();
+            baseYear = 1965;
+            yearSlider.slider('option',{min: 1965, max: 2010});
+        }
+        minBubbleValue = Math.min.apply(Math, flattenValue(bubbleValues));
+        maxBubbleValue = Math.max.apply(Math, flattenValue(bubbleValues));
 
         window.requestAnimationFrame(updateUi);
     }
@@ -376,7 +388,7 @@
             gl_FragColor = vec4(colorToUse, 1.0);
         } else {
             if (length(currPos) > 0.950) {
-                gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+                gl_FragColor = vec4(0.0,0.0,0.0, alpha);
             } else {
                 if (int(region) == 1) {
                     gl_FragColor = vec4(1.0,0.0,0.0, alpha);
@@ -497,6 +509,7 @@
     var transparencySlider = $("#transparencySlider");
     bubbleScaleSlider.slider("value", 40);
     transparencySlider.slider("value", 70);
+    var baseYear = 1800;
 
     function flattenValue(someMap) {
         var keys = Object.keys(someMap);
@@ -612,7 +625,7 @@
         circleVertexData = [];
         circleIndexData = [];
 
-        var currentYearIndex = yearSlider.slider("value") - 1800;
+        var currentYearIndex = yearSlider.slider("value") - baseYear;
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         var counter = 0;
@@ -683,7 +696,7 @@
 
         selectedCountryVertexData = [];
         selectedCountryIndexData = [];
-        var currentYearIndex = yearSlider.slider("value") - 1800;
+        var currentYearIndex = yearSlider.slider("value") - baseYear;
         var isXLinear = $("#gdpPerCapitaScale").val() === "Linear";
         var isYLinear = $("#lifeExpectancyScale").val() === "Linear";
         var counter = 0;
@@ -728,7 +741,7 @@
 
 
                 selectedCountryRegions.push(regionCode);
-                allCircleData.push([countryName, k+1800, bubbleVal, gdpPerCapita, lifeExpectancy, normalizedBubbleVal, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
+                allCircleData.push([countryName, k+baseYear, bubbleVal, gdpPerCapita, lifeExpectancy, normalizedBubbleVal, normalizedGdpPerCapita, normalizedLifeExpectancy, regionCode]);
 
                 selectedCountryVertexData.push(0.0);
                 selectedCountryVertexData.push(0.0);
@@ -1045,14 +1058,14 @@
 
             var glNormalizedXPos = normalizedXPos*2-1;
             var glNormalizedYPos = normalizedYPos*2-1;
-            if (Math.sqrt(Math.pow(glNormalizedXPos-normalizedGdpPerCapita, 2) + Math.pow(glNormalizedYPos-normalizedLifeExpectancy,2)) <= normalizedPopulationval) {
+            if (Math.sqrt(Math.pow(glNormalizedXPos-normalizedGdpPerCapita, 2) + Math.pow(glNormalizedYPos-normalizedLifeExpectancy,2)) <= normalizedBubbleVal) {
                 highlightSizes.push(normalizedBubbleVal);
                 highlightCenterX.push(normalizedGdpPerCapita);
                 highlightCenterY.push(normalizedLifeExpectancy);
                 highlightRegions.push(regionCode);
                 $("#country").text(entry[0]);
                 $("#year").text(entry[1]);
-                $("#bubble").text(parseInt(entry[2].toFixed(0)).toLocaleString());
+                $("#currentBubbleVal").text(parseInt(entry[2].toFixed(0)).toLocaleString());
                 $("#gdpPerCapitaDataPoint").text(entry[3].toFixed(2));
                 $("#lifeExpectancyDataPoint").text(entry[4].toFixed(2));
                 $("#cursor-tooltip").attr("title", "<h6>Country: " + entry[0] + "</h6>" +
