@@ -1065,7 +1065,11 @@
                 highlightRegions.push(regionCode);
                 $("#country").text(entry[0]);
                 $("#year").text(entry[1]);
-                $("#currentBubbleVal").text(parseInt(entry[2].toFixed(0)).toLocaleString());
+                if ($("#datasetSelection").val() == "Population") {
+                    $("#currentBubbleVal").text(parseInt(entry[2].toFixed(0)).toLocaleString());
+                } else {
+                    $("#currentBubbleVal").text(entry[2].toFixed(2));
+                }
                 $("#gdpPerCapitaDataPoint").text(entry[3].toFixed(2));
                 $("#lifeExpectancyDataPoint").text(entry[4].toFixed(2));
                 $("#cursor-tooltip").attr("title", "<h6>Country: " + entry[0] + "</h6>" +
