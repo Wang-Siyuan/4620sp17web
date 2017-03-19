@@ -644,7 +644,8 @@
     }
 
     function normalizeBubbleVal(bubbleVal){
-        return Math.sqrt(bubbleScaleSlider.slider("value")*(bubbleVal-minBubbleValue)/(1000*(maxBubbleValue-minBubbleValue)));
+        var ret = 0.05*Math.sqrt(bubbleScaleSlider.slider("value")*(bubbleVal-minBubbleValue)/(maxBubbleValue-minBubbleValue));
+        return ret;
     }
 
     function updateCircleData() {
@@ -881,7 +882,8 @@
         updateCircleData();
 
         var isHighlighted = (highlightSizes.length > 0);
-        var isCountrySelected = (selectedCountries.length > 0);
+        updateSelectedCountryCircles();
+        var isCountrySelected = (selectedCountrySizes.length > 0);
 
         var currentYearAlpha = Math.min(1.0, 1.5*transparencySlider.slider("value")/100.0);
         if (isHighlighted || isCountrySelected) {
@@ -894,7 +896,6 @@
             if (isHighlighted) {
                 selectedCountryAlpha = transparencySlider.slider("value") / 100.0;
             }
-            updateSelectedCountryCircles();
             var sliceSize = 200;
             var currStart = 0;
             var currVertexStart = 0;
@@ -905,9 +906,13 @@
                 currVertexStart += sliceSize*99;
                 currIndexStart += sliceSize*96;
             }
-            drawFilledCircles(gl, selectedCountrySizes.slice(currStart,selectedCountrySizes.length), selectedCountryCenterX.slice(currStart,selectedCountryCenterX.length), selectedCountryCenterY.slice(currStart,selectedCountryCenterY.length), selectedCountryRegions.slice(currStart,selectedCountryRegions.length), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart,selectedCountryVertexData.length), selectedCountryIndexData.slice(currIndexStart,selectedCountryIndexData.length));
+            if (selectedCountrySizes.slice(currStart,selectedCountrySizes.length).length > 0) {
+                drawFilledCircles(gl, selectedCountrySizes.slice(currStart, selectedCountrySizes.length), selectedCountryCenterX.slice(currStart, selectedCountryCenterX.length), selectedCountryCenterY.slice(currStart, selectedCountryCenterY.length), selectedCountryRegions.slice(currStart, selectedCountryRegions.length), selectedCountryAlpha, selectedCountryVertexData.slice(currVertexStart, selectedCountryVertexData.length), selectedCountryIndexData.slice(currIndexStart, selectedCountryIndexData.length));
+            }
             for (var i = 0; i < trendLineVertexData.length; i++) {
-                drawLine(gl, trendLineVertexData[i], trendLineVerticesCounts[i], trendLineRegionCodes[i]);
+                if (trendLineVerticesCounts[i] > 0) {
+                    drawLine(gl, trendLineVertexData[i], trendLineVerticesCounts[i], trendLineRegionCodes[i]);
+                }
             }
         }
         if (isHighlighted) {
@@ -1060,7 +1065,7 @@
         $("#lifeExpectancy").text("");
         $("#country").text("");
         $("#year").text("");
-        $("#bubble").text("");
+        $("#currentBubbleVal").text("");
         $("#gdpPerCapitaDataPoint").text("");
         $("#lifeExpectancyDataPoint").text("");
 
